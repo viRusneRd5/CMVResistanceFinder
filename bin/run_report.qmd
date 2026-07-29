@@ -1,0 +1,336 @@
+---
+title: "CMV Antiviral Resistance Run Report"
+author: "Jocelyn Hume"
+date: today
+format:
+  html:
+    toc: true
+    embed-resources: true
+  #pdf:
+  #  toc: true
+  #  number-sections: true
+execute:
+  echo: false
+  warning: false
+  message: false
+params:
+  run: "260620_CMV_KL"
+  n_samples: "33"
+---
+
+# Summary
+
+Run: **`r params$run`**
+
+Number of samples run:  **`r params$n_samples`**
+
+```{r}
+#Things I want in here:
+#number of samples that had sufficient coverage for all genes
+#mutations detected across all samples
+#primer performance - future dream.
+library(tidyverse)
+library(plotly)
+library(DT)
+library(gt)
+
+
+```
+
+
+```{r}
+
+coverage_files <- list.files(
+    pattern = "\\.coverage\\.tsv$"
+)
+
+coverage_df <- coverage_files |>
+    map_dfr(
+        ~read_tsv(.x, show_col_types = FALSE) |>
+            mutate(
+                Sample = tools::file_path_sans_ext(
+                    tools::file_path_sans_ext(basename(.x))
+                )
+            )
+    )
+
+#head(coverage_df)
+```
+
+
+```{r}
+coverage_summary <- coverage_df |>
+    group_by(Gene) |>
+    summarise(
+        Samples_total = n(),
+        Samples_over95 = sum(COVERAGE >= 95),
+        Percent_over95 = round(
+            Samples_over95 / Samples_total * 100,
+            1
+        )
+    )
+
+#coverage_summary
+```
+
+```{r}
+coverage_heatmap <- ggplot(
+    coverage_df,
+    aes(
+        x = Gene,
+        y = Sample,
+        fill = COVERAGE,
+        text = paste0(
+            "Sample: ", Sample,
+            "<br>Gene: ", Gene,
+            "<br>Coverage: ", round(COVERAGE,1), "%",
+            "<br>Depth: ", round(MEANDEPTH,1)
+        )
+    )
+) +
+    geom_tile() +
+    scale_fill_viridis_c(
+        name = "Coverage (%)",
+        limits = c(0,100)
+    ) +
+    theme_minimal() +
+    theme(
+        axis.text.y = element_text(size=8)
+    )
+
+ggplotly(coverage_heatmap, tooltip="text")
+```
+
+```{r}
+depth_heatmap <- ggplot(
+    coverage_df,
+    aes(
+        x = Gene,
+        y = Sample,
+        fill = MEANDEPTH
+    )
+) +
+    geom_tile() +
+    scale_fill_viridis_c(
+        name="Mean depth"
+    ) +
+    theme_minimal()
+
+ggplotly(depth_heatmap)
+```
+
+```{r}
+resistance_files <- list.files(
+    pattern="\\.resistance\\.tsv$"
+)
+
+resistance_df <- resistance_files |>
+    purrr::map_dfr(
+        ~read_tsv(
+            .x,
+            col_types = cols(.default = col_character())
+        ) |>
+        mutate(
+            Sample = tools::file_path_sans_ext(
+                tools::file_path_sans_ext(basename(.x))
+            )
+        )
+    )
+
+
+if(nrow(resistance_df)==0){
+  cat("No characterised resistance mutations were detected.")
+} else {
+  summary_table <- resistance_df |> mutate(across(ends_with("EC50_ratio"), as.numeric)) |> pivot_longer(cols = ends_with("EC50_ratio"), names_to="Drug", values_to="EC50") |> mutate(Drug = str_remove(Drug,"_EC50_ratio"))
+
+  summary_table <- summary_table |> group_by(Sample, Gene, Mutation, Drug) |> summarise(Mean_EC50 = mean(EC50, na.rm=TRUE), Publications = n(), .groups="drop")
+
+  summary_table <- summary_table |> mutate(Resistance = case_when(Mean_EC50 <2 ~ "Susceptible", Mean_EC50 <5 ~ "Low", Mean_EC50 <15 ~ "Medium", is.na(Mean_EC50) ~ "Unknown", TRUE ~ "High"))
+
+  summary_table <- summary_table |> select(-Mean_EC50, -Publications) |> pivot_wider(names_from = "Drug", values_from = "Resistance") |> select(Sample, Gene, Mutation, Ganciclovir, Foscarnet, Cidofovir, Maribavir, Letermovir) |> arrange(Sample, Gene, Mutation)
+
+
+  tbl <- gt(summary_table)
+  tbl <- tbl |>
+    tab_style(
+      style = cell_fill(color = "grey"),
+      locations = cells_body(
+        columns = Ganciclovir,
+        rows = Ganciclovir == "Unknown"
+      )
+    ) |>
+    tab_style(
+      style = cell_fill(color = "green"),
+      locations = cells_body(
+        columns = Ganciclovir,
+        rows = Ganciclovir == "Susceptible"
+      )
+    ) |>
+    tab_style(
+      style = cell_fill(color = "yellow"),
+      locations = cells_body(
+        columns = Ganciclovir,
+        rows = Ganciclovir == "Low"
+      )
+    ) |>
+    tab_style(
+      style = cell_fill(color = "orange"),
+      locations = cells_body(
+        columns = Ganciclovir,
+        rows = Ganciclovir == "Medium"
+      )
+    ) |>
+    tab_style(
+      style = cell_fill(color = "red"),
+      locations = cells_body(
+        columns = Ganciclovir,
+        rows = Ganciclovir == "High"
+      )
+    ) |>
+    tab_style(
+      style = cell_fill(color = "grey"),
+      locations = cells_body(
+        columns = Foscarnet,
+        rows = Foscarnet == "Unknown"
+      )
+    ) |>
+    tab_style(
+      style = cell_fill(color = "green"),
+      locations = cells_body(
+        columns = Foscarnet,
+        rows = Foscarnet == "Susceptible"
+      )
+    ) |>
+    tab_style(
+      style = cell_fill(color = "yellow"),
+      locations = cells_body(
+        columns = Foscarnet,
+        rows = Foscarnet == "Low"
+      )
+    ) |>
+    tab_style(
+      style = cell_fill(color = "orange"),
+      locations = cells_body(
+        columns = Foscarnet,
+        rows = Foscarnet == "Medium"
+      )
+    ) |>
+    tab_style(
+      style = cell_fill(color = "red"),
+      locations = cells_body(
+        columns = Foscarnet,
+        rows = Foscarnet == "High"
+      )
+    ) |>
+    tab_style(
+      style = cell_fill(color = "grey"),
+      locations = cells_body(
+        columns = Cidofovir,
+        rows = Cidofovir == "Unknown"
+      )
+    ) |>
+    tab_style(
+      style = cell_fill(color = "green"),
+      locations = cells_body(
+        columns = Cidofovir,
+        rows = Cidofovir == "Susceptible"
+      )
+    ) |>
+    tab_style(
+      style = cell_fill(color = "yellow"),
+      locations = cells_body(
+        columns = Cidofovir,
+        rows = Cidofovir == "Low"
+      )
+    ) |>
+    tab_style(
+      style = cell_fill(color = "orange"),
+      locations = cells_body(
+        columns = Cidofovir,
+        rows = Cidofovir == "Medium"
+      )
+    ) |>
+    tab_style(
+      style = cell_fill(color = "red"),
+      locations = cells_body(
+        columns = Cidofovir,
+        rows = Cidofovir == "High"
+      )
+    ) |>
+    tab_style(
+      style = cell_fill(color = "grey"),
+      locations = cells_body(
+        columns = Maribavir,
+        rows = Maribavir == "Unknown"
+      )
+    ) |>
+    tab_style(
+      style = cell_fill(color = "green"),
+      locations = cells_body(
+        columns = Maribavir,
+        rows = Maribavir == "Susceptible"
+      )
+    ) |>
+    tab_style(
+      style = cell_fill(color = "yellow"),
+      locations = cells_body(
+        columns = Maribavir,
+        rows = Maribavir == "Low"
+      )
+    ) |>
+    tab_style(
+      style = cell_fill(color = "orange"),
+      locations = cells_body(
+        columns = Maribavir,
+        rows = Maribavir == "Medium"
+      )
+    ) |>
+    tab_style(
+      style = cell_fill(color = "red"),
+      locations = cells_body(
+        columns = Maribavir,
+        rows = Maribavir == "High"
+      )
+    ) |>
+    tab_style(
+      style = cell_fill(color = "grey"),
+      locations = cells_body(
+        columns = Letermovir,
+        rows = Letermovir == "Unknown"
+      )
+    ) |>
+    tab_style(
+      style = cell_fill(color = "green"),
+      locations = cells_body(
+        columns = Letermovir,
+        rows = Letermovir == "Susceptible"
+      )
+    ) |>
+    tab_style(
+      style = cell_fill(color = "yellow"),
+      locations = cells_body(
+        columns = Letermovir,
+        rows = Letermovir == "Low"
+      )
+    ) |>
+    tab_style(
+      style = cell_fill(color = "orange"),
+      locations = cells_body(
+        columns = Letermovir,
+        rows = Letermovir == "Medium"
+      )
+    ) |>
+    tab_style(
+      style = cell_fill(color = "red"),
+      locations = cells_body(
+        columns = Letermovir,
+        rows = Letermovir == "High"
+      )
+    )
+
+
+  tbl
+}
+
+
+```
