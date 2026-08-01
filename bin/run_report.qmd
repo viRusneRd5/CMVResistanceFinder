@@ -1,6 +1,6 @@
 ---
 title: "CMV Antiviral Resistance Run Report"
-author: "Jocelyn Hume"
+author: "`r params$report_author`"
 date: today
 format:
   html:
@@ -14,8 +14,9 @@ execute:
   warning: false
   message: false
 params:
-  run: "260620_CMV_KL"
-  n_samples: "33"
+  report_author: ""
+  run: ""
+  n_samples: ""
 ---
 
 # Summary
@@ -334,3 +335,15 @@ if(nrow(resistance_df)==0){
 
 
 ```
+
+
+
+
+*This report has been generated using the CMVResistanceFinder Nextflow pipeline found here: [viRusneRd5/CMVResistanceFinder](https://github.com/viRusneRd5/CMVResistanceFinder)*
+
+*This pipeline was written by Jocelyn Hume at the University of Queensland <j.hume@uq.edu.au>*
+
+***The results in this report are for research use only and should not be used to inform clinical practice.*** 
+
+***This report only contains a summary of the results, the complete per-publication EC50 data, full coverage tables and variant-caller metrics are available in the pipeline output directory and should be reviewed alongside this report.***
+

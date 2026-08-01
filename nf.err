@@ -1,2 +1,0 @@
-+ nextflow run viRusneRd5-cmvresistancefinder -profile debug_conda --input full_samplesheet.csv --outdir cmv_new_test --protocol amplicon --hostile_reference_path /path/to/hostile_reference --kraken2_db /path/to/kraken_viral_db -resume
-Remote resource not found: https://api.github.com/repos/nextflow-io/viRusneRd5-cmvresistancefinder/contents/main.nf

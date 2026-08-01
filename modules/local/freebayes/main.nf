@@ -20,9 +20,9 @@ process FREEBAYES {
     task.ext.when == null || task.ext.when
 
     script:
-    def args    = task.ext.args   ?: ''
-    def prefix  = task.ext.prefix ?: "${meta.id}"
-    def targets_file     = target_bed  ? "--target ${target_bed}"       : ""
+    def args         = task.ext.args   ?: ''
+    def prefix       = task.ext.prefix ?: "${meta.id}"
+    def targets_file = target_bed  ? "--target ${target_bed}"       : ""
     """
     freebayes \\
         -f ${fasta} \\

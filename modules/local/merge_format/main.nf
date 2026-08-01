@@ -30,7 +30,6 @@ process MERGE_FORMAT {
         --output ${prefix}.merged.tsv \\
         ${vcfs.join(' ')}
 
-
     format_variants.py \\
     --input ${prefix}.merged.tsv \
     --output ${prefix}.formatted.tsv

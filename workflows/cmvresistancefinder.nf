@@ -9,11 +9,12 @@ include { paramsSummaryMultiqc                       } from '../subworkflows/nf-
 include { softwareVersionsToYAML                     } from '../subworkflows/nf-core/utils_nfcore_pipeline'
 include { methodsDescriptionText                     } from '../subworkflows/local/utils_nfcore_cmvresistancefinder_pipeline'
 include { INPUT_CHECK                                } from '../subworkflows/local/input_check/main'
-include { PREPARE                                    } from '../subworkflows/local/pipeline_preparation/main'
+include { PIPELINE_PREPARATION                       } from '../subworkflows/local/pipeline_preparation/main'
 include { HOSTILE_CLEAN                              } from '../modules/nf-core/hostile/clean/main'
 include { KRAKEN2_KRAKEN2                            } from '../modules/nf-core/kraken2/kraken2/main'
 include { FASTQC as RAW_FASTQC                       } from '../modules/nf-core/fastqc/main'
 include { FASTQC as FINAL_FASTQC                     } from '../modules/nf-core/fastqc/main'
+include { SAMTOOLS_STATS                             } from '../modules/nf-core/samtools/stats/main'
 
 //Trimming
 include { TRIMMOMATIC                                } from '../modules/nf-core/trimmomatic/main'
@@ -26,7 +27,7 @@ include { BWAMEM3_MEM                                } from '../modules/nf-core/
 include { SAMTOOLS_SORT                              } from '../modules/nf-core/samtools/sort/main'
 
 //Variant calling
-include { IVAR_VARIANTS                              } from '../modules/nf-core/ivar/variants/main'
+include { IVAR_VARIANTS                              } from '../modules/local/ivar/variants/main'
 include { FREEBAYES                                  } from '../modules/local/freebayes/main'
 include { BCFTOOLS_SORT                              } from '../modules/nf-core/bcftools/sort/main'
 include { LOFREQ_CALL                                } from '../modules/nf-core/lofreq/call/main'
@@ -41,7 +42,7 @@ include { SNPSIFT_EXTRACTFIELDS as SNPSIFT_FREEBAYES } from '../modules/local/sn
 include { SNPSIFT_EXTRACTFIELDS as SNPSIFT_LOFREQ    } from '../modules/local/snpsift/extractfields/main'
 include { SNPSIFT_EXTRACTFIELDS as SNPSIFT_IVAR      } from '../modules/local/snpsift/extractfields/main'
 include { MERGE_FORMAT                               } from '../modules/local/merge_format/main'
-include { QUARTO_REPORT                              } from '../modules/local/quarto/sample_report/main'
+include { QUARTO_SAMPLE_REPORT                       } from '../modules/local/quarto/sample_report/main'
 include { SAMTOOLS_COVERAGE                          } from '../modules/local/samtools/coverage/main'
 include { QUARTO_RUN_REPORT                          } from '../modules/local/quarto/run_report/main'
 
@@ -71,55 +72,72 @@ workflow CMVRESISTANCEFINDER {
     sample_input = file(params.input, checkIfExists:true)
 
     // SUBWORKFLOW: Prepare the CMV reference genome and primers
-    PREPARE (
-        params.cmv_merlin_fasta,
-        params.cmv_merlin_gff
-        //params.cmv_primers_bed
+    PIPELINE_PREPARATION (
+        params.cmv_ref_name,
+        params.cmv_ref_fasta,
+        params.cmv_ref_gff
     )
+    ch_resis_mut_bed = PIPELINE_PREPARATION.out.resis_bed
+    ch_cmv_ref_fasta = PIPELINE_PREPARATION.out.fasta
+    ch_cmv_ref_fai = PIPELINE_PREPARATION.out.fai
+    ch_cmv_ref_fai = ch_cmv_ref_fai.map { id, fai ->
+            tuple(
+                [id: id, single_end: false],
+                fai
+            )
+    }
+    ch_fasta_fai = ch_cmv_ref_fasta.join(ch_cmv_ref_fai).first()
+    ch_cmv_aligner_index = PIPELINE_PREPARATION.out.cmv_ref_index
+    ch_cmv_ref_gff = PIPELINE_PREPARATION.out.gff
+
+
+    ch_genes_bed = Channel.fromPath(params.cmv_genes_bed).first()
+
 
     //
     // Create raw data channel
     //
     INPUT_CHECK(sample_input)
     ch_raw_fastqs = ch_raw_fastqs.mix(INPUT_CHECK.out.reads) // meta[id, reads]
-    //ch_raw_fastqs.view()
 
 
     //
-    // MODULE: Run Fastqc
+    // MODULE: Run Fastqc on raw fastqs.
     //
     RAW_FASTQC (
         ch_raw_fastqs
     )
+    ch_multiqc_files = ch_multiqc_files.mix(RAW_FASTQC.out.zip.collect{it[1]}.ifEmpty([]))
 
 
+    //
+    // MODULE: Run fastp
+    //
     if (params.trimmer == "fastp") {
-        //
-        // MODULE: Run fastp
-        //
         FASTP (
             ch_raw_fastqs.map { meta, reads -> tuple(meta, reads, '') },
             false,
             false,
             false
         )
-        ch_trimmed_fastq = ch_trimmed_fastq.mix(TRIMMOMATIC.out.trimmed_reads)
+        ch_trimmed_fastq = ch_trimmed_fastq.mix(FASTP.out.reads)
+        ch_multiqc_files = ch_multiqc_files.mix(FASTP.out.json).mix(FASTP.out.html).collect()
     }
 
+    //
+    // MODULE: Run trimmomatic
+    //
     if (params.trimmer == "trimmomatic") {
-        //
-        // MODULE: Run trimmomatic
-        //
         TRIMMOMATIC (
                 ch_raw_fastqs
             )
         ch_trimmed_fastq = ch_trimmed_fastq.mix(TRIMMOMATIC.out.trimmed_reads)
     }
 
+    //
+    // MODULE: Run Hostile to remove host reads and Kraken2 to classify
+    //
     if (!params.skip_host_removal && !params.skip_kraken2) {
-        //
-        // MODULE: Run Hostile to remove host reads
-        //
         ch_hostile_reference = Channel.value( [params.hostile_index, params.hostile_reference_path] )
         HOSTILE_CLEAN (
             ch_trimmed_fastq,
@@ -127,9 +145,6 @@ workflow CMVRESISTANCEFINDER {
         )
         ch_final_reads = HOSTILE_CLEAN.out.fastq
 
-        //
-        // MODULE: Kraken2 to identify the number of reads remaining that belong to CMV
-        //
         KRAKEN2_KRAKEN2 (
             ch_final_reads,
             params.kraken2_db,
@@ -139,11 +154,10 @@ workflow CMVRESISTANCEFINDER {
         ch_multiqc_files =  ch_multiqc_files.mix(KRAKEN2_KRAKEN2.out.report.collect{it[1]}.ifEmpty([]))
     }
 
-
+    //
+    // MODULE: Kraken2 to classify reads
+    //
     if (params.skip_host_removal && !params.skip_kraken2) {
-        //
-        // MODULE: Kraken2 to identify the number of reads remaining that belong to CMV
-        //
         KRAKEN2_KRAKEN2 (
             ch_trimmed_fastq,
             params.kraken2_db,
@@ -158,51 +172,35 @@ workflow CMVRESISTANCEFINDER {
     }
 
     //
-    // MODULE: Run Fastqc
+    // MODULE: Run Fastqc for trimmed and host-removed reads.
     //
     FINAL_FASTQC (
         ch_final_reads
     )
+    ch_multiqc_files = ch_multiqc_files.mix(FINAL_FASTQC.out.zip.collect{it[1]}.ifEmpty([]))
 
 
+    //
+    // MODULE: Alignment with Bowtie2
+    //
     if (params.aligner == 'bowtie2') {
-        //
-        // MODULE: Alignment with Bowtie2
-        //
-        ch_ref = Channel.value( [ [id: params.cmv_merlin_name, single_end:false], params.cmv_merlin_fasta] )
-        cmv_merlin_index = PREPARE.out.cmv_merlin_index
-        cmv_merlin_index = cmv_merlin_index.map { ref_name, index_directory ->
-        [ [id: ref_name, single_end:false], index_directory]
-        }
-        //cmv_merlin_index = cmv_merlin_index.first()
-        ch_ref = ch_ref.first()
-        
         BOWTIE2_ALIGN (
             ch_trimmed_fastq,
-            cmv_merlin_index,
-            ch_ref,
+            ch_cmv_aligner_index,
+            ch_cmv_ref_fasta,
             false, //save unaligned
             true //samtools sort
         )
         ch_bam           = BOWTIE2_ALIGN.out.bam
-        ch_multiqc_files = ch_multiqc_files.mix(BOWTIE2_ALIGN.out.log.collect{it[1]}.ifEmpty([]))
     }
 
-
+    //
+    // MODULE: Alignment with minimap2
+    //
     if (params.aligner == 'minimap2') {
-        //
-        // MODULE: Alignment with minimap2
-        //
-        ch_ref = Channel.value( [ [id: params.cmv_merlin_name, single_end:false], params.cmv_merlin_fasta] )
-        cmv_merlin_index = PREPARE.out.cmv_merlin_index
-        cmv_merlin_index = cmv_merlin_index.map { ref_name, index_directory ->
-        [ [id: ref_name, single_end:false], index_directory]
-        }
-        //cmv_merlin_index = cmv_merlin_index.first()
-        ch_ref = ch_ref.first()
         MINIMAP2_ALIGN (
             ch_trimmed_fastq,
-            ch_ref,
+            ch_cmv_aligner_index,
             true,
             'bai',
             false,
@@ -211,18 +209,14 @@ workflow CMVRESISTANCEFINDER {
         ch_bam           = MINIMAP2_ALIGN.out.bam
     }
 
-
+    //
+    // MODULE: Alignment with bwa-mem3
+    //
     if (params.aligner == 'bwa-mem3') {
-        //
-        // MODULE: Alignment with bwa-mem3
-        //
-        ch_ref = Channel.value( [ [id: params.cmv_merlin_name, single_end:false], params.cmv_merlin_fasta] )
-        cmv_merlin_index = PREPARE.out.cmv_merlin_index
-        //cmv_merlin_index = cmv_merlin_index.first()
         BWAMEM3_MEM (
             ch_trimmed_fastq,
-            cmv_merlin_index,
-            ch_ref,
+            ch_cmv_aligner_index,
+            ch_cmv_ref_fasta,
             true
         )
         ch_bam           = BWAMEM3_MEM.out.aligned
@@ -232,32 +226,36 @@ workflow CMVRESISTANCEFINDER {
     //
     // MODULE: Sort bam file and index
     //
-
-    ch_chrom = Channel.value( [params.cmv_merlin_name, params.cmv_merlin_fasta, params.cmv_merlin_fai] )
     SAMTOOLS_SORT(
         ch_bam,
-        ch_chrom,
+        ch_fasta_fai,
         'bai'
     )
     ch_sorted_bam = SAMTOOLS_SORT.out.bam
     ch_sort_bam_index = SAMTOOLS_SORT.out.index
 
+    //
+    // MODULE: Get bam file stats
+    //
+    ch_bam_bai = ch_sorted_bam.join(ch_sort_bam_index)
+    SAMTOOLS_STATS (
+        ch_bam_bai,
+        ch_fasta_fai
+    )
+    multiqc_input_ch = SAMTOOLS_STATS.out.stats.map { meta, stats_file -> stats_file }.collect()
 
-    // To-do: get stats on samples that passed minimum mapped reads
+
+    // TODO: get stats on samples that passed minimum mapped reads
 
 
     //
-    // MODULE: Call variants with IVar
+    // MODULE: Call variants with IVar, convert tsv to vcf, index, annotate with snpeff and extract with snpsift
     //
-    ch_vcf                    = Channel.empty()
-    ch_tbi                    = Channel.empty()
-    ch_snpsift_txt            = Channel.empty()
     if (params.variant_caller == "all" || params.variant_caller == "ivar") {
         IVAR_VARIANTS (
             ch_sorted_bam,
-            params.cmv_merlin_fasta,
-            params.cmv_merlin_fai,
-            params.cmv_merlin_gff,
+            ch_fasta_fai,
+            ch_cmv_ref_gff,
             true
         )
         ch_ivar_tsv           = IVAR_VARIANTS.out.tsv
@@ -275,9 +273,9 @@ workflow CMVRESISTANCEFINDER {
 
         SNPEFF_IVAR (
             ch_ivar_vcf,
-            PREPARE.out.snpeff_db,
-            PREPARE.out.snpeff_config,
-            params.cmv_merlin_fasta
+            PIPELINE_PREPARATION.out.snpeff_db,
+            PIPELINE_PREPARATION.out.snpeff_config,
+            ch_cmv_ref_fasta
         )
 
         SNPSIFT_IVAR (
@@ -286,14 +284,21 @@ workflow CMVRESISTANCEFINDER {
         ch_snpsift_ivar = SNPSIFT_IVAR.out.txt
     }
 
+
+    //
+    // MODULE: Call variants with Freebayes, index, annotate with snpeff and extract with snpsift
+    //
     if (params.variant_caller == "all" || params.variant_caller == "freebayes") {
         ch_freebayes = ch_sorted_bam.join(ch_sort_bam_index)
-        ch_freebayes = ch_freebayes.map { meta, bam, bai -> 
-        tuple(meta, bam, bai, params.cmv_genes_freebayes) 
-        }
+        ch_freebayes = ch_freebayes.combine(ch_genes_bed)
+            .map { meta, bam, bai, bed ->
+                tuple(meta, bam, bai, bed)
+            }
+
+
         FREEBAYES (
             ch_freebayes,
-            ch_chrom
+            ch_fasta_fai
         )
         ch_freebayes_vcf = FREEBAYES.out.vcf
 
@@ -309,9 +314,9 @@ workflow CMVRESISTANCEFINDER {
 
         SNPEFF_FREEBAYES (
             ch_freebayes_vcf,
-            PREPARE.out.snpeff_db,
-            PREPARE.out.snpeff_config,
-            params.cmv_merlin_fasta
+            PIPELINE_PREPARATION.out.snpeff_db,
+            PIPELINE_PREPARATION.out.snpeff_config,
+            ch_cmv_ref_fasta
         )
 
         SNPSIFT_FREEBAYES (
@@ -320,13 +325,18 @@ workflow CMVRESISTANCEFINDER {
         ch_snpsift_freebayes = SNPSIFT_FREEBAYES.out.txt
     }
 
+    //
+    // MODULE: Call variants with Lofreq, index, annotate with snpeff and extract with snpsift
+    //
     if (params.variant_caller == "all" || params.variant_caller == "lofreq") {
-        ch_lofreq = ch_sorted_bam.map { meta, bam -> 
-        tuple(meta, bam, params.cmv_genes_freebayes)
-        }
+        ch_lofreq = ch_sorted_bam.combine(ch_genes_bed)
+            .map { meta, bam, bed ->
+                tuple(meta, bam, bed)
+            }
+
         LOFREQ_CALL (
             ch_lofreq,
-            params.cmv_merlin_fasta
+            params.cmv_ref_fasta
         )
         ch_lofreq_vcf = LOFREQ_CALL.out.vcf
 
@@ -337,9 +347,9 @@ workflow CMVRESISTANCEFINDER {
 
         SNPEFF_LOFREQ (
             ch_lofreq_vcf,
-            PREPARE.out.snpeff_db,
-            PREPARE.out.snpeff_config,
-            params.cmv_merlin_fasta
+            PIPELINE_PREPARATION.out.snpeff_db,
+            PIPELINE_PREPARATION.out.snpeff_config,
+            ch_cmv_ref_fasta
         )
 
         SNPSIFT_LOFREQ (
@@ -348,6 +358,9 @@ workflow CMVRESISTANCEFINDER {
         ch_snpsift_lofreq = SNPSIFT_LOFREQ.out.txt
     }
 
+    //
+    // MODULE: Merge vcf files, format output files, extract matches in database
+    //
     if (params.variant_caller == "all") {
         ch_merged_vcf = ch_snpsift_ivar.join(ch_snpsift_freebayes)
         ch_merged_vcf = ch_merged_vcf.join(ch_snpsift_lofreq).map { meta, ivar, freebayes, lofreq ->
@@ -362,21 +375,39 @@ workflow CMVRESISTANCEFINDER {
         ch_formatted = MERGE_FORMAT.out.formatted
     }
 
-    ch_quarto = ch_sorted_bam.join(ch_resistance)
-    ch_quarto = ch_quarto.join(ch_formatted)//.map { meta, bam, resistance, formatted ->
-    //    tuple(meta, [bam, resistance, formatted])
-    //}
-    QUARTO_REPORT (
+    ch_quarto = ch_sorted_bam.join(ch_sort_bam_index).join(ch_resistance).join(ch_formatted)
+    ch_db_name = file(params.cmv_resis_db).baseName
+
+    gene_positions_ch = ch_genes_bed
+        .map { bed_file ->
+            def gene_positions = [:]
+            bed_file.eachLine { line ->
+                def (chr, start, end, gene) = line.tokenize('\t')
+                gene_positions[gene.toLowerCase()] = "${start}-${end}"
+            }
+            gene_positions
+        }
+        .first()
+
+
+    //ch_quarto.view()
+    QUARTO_SAMPLE_REPORT (
         ch_quarto,
-        params.mut_bed,
+        ch_resis_mut_bed,
+        params.protocol,
+        params.report_author,
+        params.bibliography,
+        ch_db_name,
+        params.cmv_resis_db_version,
         params.min_depth,
-        params.cmv_merlin_name
+        params.cmv_ref_name,
+        gene_positions_ch
     )
 
     ch_bam_bai = ch_sorted_bam.join(ch_sort_bam_index)
     SAMTOOLS_COVERAGE (
         ch_bam_bai,
-        params.cmv_genes_bed,
+        ch_genes_bed,
         params.min_depth
     )
 
@@ -386,6 +417,7 @@ workflow CMVRESISTANCEFINDER {
     QUARTO_RUN_REPORT (
         ch_coverages,
         ch_resistances,
+        params.report_author,
         params.run_name,
         ch_total_count
     )

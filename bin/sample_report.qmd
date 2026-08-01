@@ -1,19 +1,30 @@
+
 ---
 title: "CMV Antiviral Resistance Report"
-author: "Jocelyn Hume"
+author: "`r params$report_author`"
 date: today
+bibliography: "`r params$bibliography`"
 format:
   html:
     toc: true
     embed-resources: true
+    df-print: kable
   #pdf:
-  #  toc: true
-  #  number-sections: true
+    #toc: true
+    #cite-method: biblatex
+    #geometry:
+    #  - margin=2cm
+    #fontsize: 10pt
 execute:
   echo: false
   warning: false
   message: false
 params:
+  report_author: ""
+  bibliography: ""
+  database_name: ""
+  database_version: ""
+  protocol: ""
   sample: ""
   resistance: ""
   formatted: ""
@@ -21,10 +32,21 @@ params:
   mut_bed: ""
   threshold: ""
   reference: ""
+  ul27_pos: ""
+  ul51_pos: ""
+  ul54_pos: ""
+  ul56_pos: ""
+  ul89_a_pos: ""
+  ul97_pos: ""
 ---
 
 
-# Summary
+```{css}
+/*| echo: false */
+p {
+  text-align: justify
+}
+```
 
 Sample: **`r params$sample`**
 
@@ -32,33 +54,36 @@ Sequencing depth treshold: **`r params$threshold`**
 
 Reference sequence: **`r params$reference`**
 
-**Detected Mutations**
-```{r}
+```{r load_packages}
 #Load Packages
-pacman::p_load(ggcoverage, cowplot, tidyverse, GenomicAlignments, gt, knitr, rmarkdown)
+pacman::p_load(Rsamtools, cowplot, tidyverse, GenomicAlignments, gt, knitr, rmarkdown, htmltools, tinytex)
 
 ```
 
-
-
-```{r}
+```{r load_data}
 #Load data
 resis_output <- params$resistance
 all_muts_file <- params$formatted
 bam_file <- params$bam
 bed_file <- params$mut_bed
-
+protocol <- params$protocol
+threshold <- as.numeric(params$threshold)
+reference <- params$reference
+ul27_pos <- params$ul27_pos
+ul51_pos <- params$ul51_pos
+ul54_pos <- params$ul54_pos
+ul56_pos <- params$ul56_pos
+ul89_pos <- params$ul89_a_pos
+ul97_pos <- params$ul97_pos
 ```
 
+```{r det_muts_analysis}
+#Need to perform the analysis first to be able to put values in the summary text.
 
-
-```{r}
-
+#Detected Mutations - Predicted Resistance
 resis_df <- read_tsv(resis_output)
 #Are there any mutations?
-if(nrow(resis_df)==0){
-  cat("No characterised resistance mutations were detected.")
-} else {
+if(nrow(resis_df)!=0){
   summary_table <- resis_df |> mutate(across(ends_with("EC50_ratio"), as.numeric)) |> pivot_longer(cols = ends_with("EC50_ratio"), names_to="Drug", values_to="EC50") |> mutate(Drug = str_remove(Drug,"_EC50_ratio"))
 
   summary_table <- summary_table |> group_by(Gene, Mutation, Drug) |> summarise(Mean_EC50 = mean(EC50, na.rm=TRUE), Publications = n(), .groups="drop")
@@ -67,11 +92,23 @@ if(nrow(resis_df)==0){
 
   summary_table <- summary_table |> select(-Mean_EC50, -Publications) |> pivot_wider(names_from = "Drug", values_from = "Resistance") |> select(Gene, Mutation, Ganciclovir, Foscarnet, Cidofovir, Maribavir, Letermovir)
 
+  legend <- HTML(
+    paste(
+      "<span style='display:inline-block;width:12px;height:12px;background;#A9A9A9;border:1px solid black;'></span> Unknown (not found in database)",
+      "<span style='display:inline-block;width:12px;height:12px;background:#00FF00;border:1px solid black;'></span> Susceptible (< 2 EC50 ratio)",
+      "&nbsp;&nbsp;",
+      "<span style='display:inline-block;width:12px;height:12px;background:#FFFF00;border:1px solid black;'></span> Low (>= 2 & < 5 EC50 ratio)",
+      "&nbsp;&nbsp;",
+      "<span style='display:inline-block;width:12px;height:12px;background:#FFA500;border:1px solid black;'></span> Medium (>= 5 & < 15 EC50 ratio)",
+      "&nbsp;&nbsp;",
+      "<span style='display:inline-block;width:12px;height:12px;background:#FF0000;border:1px solid black;'></span> High (>= 15 EC50 ratio)"
+      )
+    )
 
   tbl <- gt(summary_table)
   tbl <- tbl |>
     tab_style(
-      style = cell_fill(color = "grey"),
+      style = cell_fill(color = "#A9A9A9"),
       locations = cells_body(
         columns = Ganciclovir,
         rows = Ganciclovir == "Unknown"
@@ -106,7 +143,7 @@ if(nrow(resis_df)==0){
       )
     ) |>
     tab_style(
-      style = cell_fill(color = "grey"),
+      style = cell_fill(color = "#A9A9A9"),
       locations = cells_body(
         columns = Foscarnet,
         rows = Foscarnet == "Unknown"
@@ -141,7 +178,7 @@ if(nrow(resis_df)==0){
       )
     ) |>
     tab_style(
-      style = cell_fill(color = "grey"),
+      style = cell_fill(color = "#A9A9A9"),
       locations = cells_body(
         columns = Cidofovir,
         rows = Cidofovir == "Unknown"
@@ -176,7 +213,7 @@ if(nrow(resis_df)==0){
       )
     ) |>
     tab_style(
-      style = cell_fill(color = "grey"),
+      style = cell_fill(color = "#A9A9A9"),
       locations = cells_body(
         columns = Maribavir,
         rows = Maribavir == "Unknown"
@@ -211,7 +248,7 @@ if(nrow(resis_df)==0){
       )
     ) |>
     tab_style(
-      style = cell_fill(color = "grey"),
+      style = cell_fill(color = "#A9A9A9"),
       locations = cells_body(
         columns = Letermovir,
         rows = Letermovir == "Unknown"
@@ -244,280 +281,585 @@ if(nrow(resis_df)==0){
         columns = Letermovir,
         rows = Letermovir == "High"
       )
+    ) |> tab_source_note(source_note = legend)
+  #tab_footnote(
+  #  footnote = "GCV = ganciclovir, FOS = foscarnet, CDV = cidofovir, MBV = maribavir, LET = letermovir"
+  #) |>
+  #tab_footnote(
+  #  footnote = "Unknown = not characterised in the literature, Susceptible = <2 EC50 ratio, Low = >= 2 & < 5 EC50 ratio, Medium = >= 5 & < 15 EC50 ratio, High = >= 15 EC50 ratio."
+  #) |>
+  
+}
+
+```
+
+```{r key_muts_analysis}
+# Key Mutations Characterised in the Literature
+if(nrow(resis_df)!=0){
+  colnames(resis_df) <- gsub("ganciclovir", "Ganciclovir", colnames(resis_df))
+  colnames(resis_df) <- gsub("foscarnet", "Foscarnet", colnames(resis_df))
+  colnames(resis_df) <- gsub("cidofovir", "Cidofovir", colnames(resis_df))
+  colnames(resis_df) <- gsub("maribavir", "Maribavir", colnames(resis_df))
+  colnames(resis_df) <- gsub("letermovir", "Letermovir", colnames(resis_df))
+  condensed_df <- resis_df |> 
+    mutate(
+      across(
+        ends_with("EC50_ratio"),
+        as.character
+      )
+    ) |> 
+    pivot_longer(
+      cols = matches("(_EC50_ratio|_resistance)$"),
+      names_to = c("Drug", ".value"),
+      names_pattern = "(.*)_(EC50_ratio|resistance)"
+    ) |>
+    filter(!(is.na(EC50_ratio) & is.na(resistance)))
+
+  format_range <- function(x, digits = 1) {
+
+    x <- sort(na.omit(as.numeric(x)))
+
+    if (length(x) == 0)
+      return(NA_character_)
+
+    if (min(x) == max(x))
+      return(format(round(min(x), digits), trim = TRUE))
+
+    sprintf(
+      "%s–%s",
+      format(round(min(x), digits), trim = TRUE),
+      format(round(max(x), digits), trim = TRUE)
+    )
+  }
+  levels <- c("Susceptible", "Low", "Medium", "High")
+
+  format_level <- function(x){
+
+    x <- factor(na.omit(x), levels = levels, ordered = TRUE)
+
+    if(length(x) == 0)
+      return(NA_character_)
+
+    lo <- min(x)
+    hi <- max(x)
+
+    if(lo == hi)
+      as.character(lo)
+    else
+      paste0(lo, "–", hi)
+  }
+  get_resistance_level <- function(x) {
+    case_when(
+      x < 2 ~ "Susceptible",
+      x >= 2 & x < 5 ~ "Low",
+      x >= 5 & x < 15 ~ "Medium",
+      x >= 15 ~ "High"
+    )
+  }
+  summarise_resistance <- function(x) {
+    
+    x <- sort(na.omit(x))
+    
+    if(length(x) == 0)
+      return(NA_character_)
+    
+    levels <- get_resistance_level(x)
+    
+    levels <- factor(
+      levels,
+      levels = c("Susceptible", "Low", "Medium", "High"),
+      ordered = TRUE
+    )
+    
+    if(min(levels) == max(levels)) {
+      as.character(min(levels))
+    } else {
+      paste0(min(levels), "–", max(levels))
+    }
+  }
+
+  summary_df <- condensed_df |>
+    group_by(Gene, Mutation, Drug) |>
+    summarise(
+      `EC50 ratio` = format_range(EC50_ratio),
+      `Level of resistance` = summarise_resistance(EC50_ratio),
+      Reference = paste0("[@", unique(BIBTEXKEY), "]", collapse = "; "),#paste(unique(Reference), collapse = "; "),
+      .groups = "drop"
     )
 
+}
 
-  tbl
+
+
+```
+
+```{r unknown_sig_analysis}
+# Mutations of Unknown Significance
+all_muts <- read_tsv(all_muts_file)
+#This outputs only mutations found in the resistance genes if protocol is amplicon, or all genes if protocol is wgs.
+if(protocol == "amplicon"){
+  genes <- c("UL27", "UL51", "UL54", "UL56", "UL89", "UL97")
+  all_muts <- anti_join(all_muts, resis_df, join_by("ANN[*].GENE" == "Gene", "AA_change" == "Mutation")) |> filter(`ANN[*].GENE` %in% genes) 
+} else if(protocol == "wgs"){
+  all_muts <- anti_join(all_muts, resis_df, join_by("ANN[*].GENE" == "Gene", "AA_change" == "Mutation"))
+}
+
+all_muts$`EFF[*].EFFECT` <- gsub("&", " & ", all_muts$`EFF[*].EFFECT`)
+
+all_muts <- all_muts |> filter(`EFF[*].AA` != ".") |> rowwise() |> mutate(`Ref > Alt` = paste0(REF, " > ", ALT), Effect = `EFF[*].EFFECT`, Gene = `ANN[*].GENE`, Frequency = gsub(",", ", ", gsub("lofreq:|freebayes:|ivar:", "", `AF[*]`)), Depth = gsub(",", ", ", gsub("lofreq:|freebayes:|ivar:", "", `DP[*]`)), `Variant Callers` = gsub(",", ", ", detected_by)) |> select(POS, `Ref > Alt`, Gene, AA_change, Effect, Frequency, Depth, `Variant Callers`) |> arrange(POS)
+```
+
+```{r amr_cov_analysis}
+# AMR Gene Coverage
+muts <- read_tsv(bed_file, col_names = FALSE)
+colnames(muts) <- c("Genome", "start", "end", "label")
+
+plot_gene_coverage <- function(bam,
+                               bed,
+                               min_depth,
+                               chrom,
+                               start,
+                               end,
+                               gene_name = NULL) {
+
+  # Create genomic range
+  gr <- GRanges(
+    seqnames = chrom,
+    ranges = IRanges(start = start, end = end)
+  )
+
+  # Extract coverage
+  cov <- coverage(
+    BamFile(bam),
+    param = ScanBamParam(which = gr)
+  )
+
+  # Convert to data frame
+  depth_df <- data.frame(
+    position = start:end,
+    depth = as.numeric(cov[[chrom]][start:end]),
+    Type = gene_name
+  )
+
+  # Get known AMR mutation positions to mark on plot
+  bed <- bed |>
+    filter(str_detect(label, gene_name)) |> 
+    distinct(start, end, .keep_all = TRUE) |> 
+    rowwise() |>
+    mutate(
+      depth = mean(
+        as.numeric(
+          cov[[chrom]][start:end]
+        )
+      ),
+      coverage_status = ifelse(depth >= min_depth, "Sufficient", "Insufficient")
+    ) |>
+    ungroup()
+
+  # Plot
+  p <- ggplot(depth_df, aes(x = position, y = depth)) +
+    geom_area(alpha = 0.7) +
+    geom_line(linewidth = 0.3) +
+    theme(panel.grid = element_blank(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_rect(fill = NA), axis.line = element_line(linewidth = 0.5), strip.background = element_rect(fill = "#94e4ca", colour = "black", linewidth = 0.5), strip.text = element_text(colour = "black", face = "bold")) +
+    facet_grid(vars(Type)) +
+    labs(x = "Genome Position", y = "Depth") + 
+    geom_rect(data = bed, inherit.aes = FALSE, aes(xmin = start, xmax = end, ymin = 0, ymax = Inf, fill = coverage_status)) +
+    scale_fill_manual(values = c(Sufficient = "#A9A9A9", Insufficient = "red")) +
+    scale_y_continuous(limits = c(0, max(min_depth, max(depth_df$depth))))
+
+  return(p)
+}
+
+ul27_plot <- plot_gene_coverage(
+    bam = bam_file,
+    bed = muts,
+    min_depth = threshold,
+    chrom = reference,
+    start = as.numeric(unlist(str_split(ul27_pos, "-"))[1]),
+    end = as.numeric(unlist(str_split(ul27_pos, "-"))[2]),
+    gene_name = "UL27"
+)
+
+ul51_plot <- plot_gene_coverage(
+    bam = bam_file,
+    bed = muts,
+    min_depth = threshold,
+    chrom = reference,
+    start = as.numeric(unlist(str_split(ul51_pos, "-"))[1]),
+    end = as.numeric(unlist(str_split(ul51_pos, "-"))[2]),
+    gene_name = "UL51"
+)
+
+ul54_plot <- plot_gene_coverage(
+    bam = bam_file,
+    bed = muts,
+    min_depth = threshold,
+    chrom = reference,
+    start = as.numeric(unlist(str_split(ul54_pos, "-"))[1]),
+    end = as.numeric(unlist(str_split(ul54_pos, "-"))[2]),
+    gene_name = "UL54"
+)
+
+ul56_plot <- plot_gene_coverage(
+    bam = bam_file,
+    bed = muts,
+    min_depth = threshold,
+    chrom = reference,
+    start = as.numeric(unlist(str_split(ul56_pos, "-"))[1]),
+    end = as.numeric(unlist(str_split(ul56_pos, "-"))[2]),
+    gene_name = "UL56"
+)
+
+ul89_plot <- plot_gene_coverage(
+    bam = bam_file,
+    bed = muts,
+    min_depth = threshold,
+    chrom = reference,
+    start = as.numeric(unlist(str_split(ul89_pos, "-"))[1]),
+    end = as.numeric(unlist(str_split(ul89_pos, "-"))[2]),
+    gene_name = "UL89"
+)
+
+ul97_plot <- plot_gene_coverage(
+    bam = bam_file,
+    bed = muts,
+    min_depth = threshold,
+    chrom = reference,
+    start = as.numeric(unlist(str_split(ul97_pos, "-"))[1]),
+    end = as.numeric(unlist(str_split(ul97_pos, "-"))[2]),
+    gene_name = "UL97"
+)
+
+
+plot <- plot_grid(ul27_plot, ul51_plot, ul54_plot, ul56_plot, ul89_plot, ul97_plot, ncol = 1, align = "hv")
+
+
+
+if(protocol == "wgs"){
+  cov <- coverage(BamFile(bam_file))
+  header <- scanBamHeader(bam_file)
+  chrom_lengths <- header[[1]]$targets
+  depth_df <- data.frame(
+      position = 1:chrom_lengths,
+      depth = as.numeric(cov[[reference]][1:chrom_lengths])
+  )
+
+  depth_df$log_depth <- log(depth_df$depth)
+
+  depth_df <- depth_df |> rowwise() |> mutate(log_depth = ifelse(log_depth == -Inf, 0, log_depth))
+  gene_df <- data.frame(
+    gene = c("UL27", "UL51", "UL54", "UL56", "UL89_A", "UL97"),
+    start = c(as.numeric(unlist(str_split(ul27_pos, "-"))[1]), as.numeric(unlist(str_split(ul51_pos, "-"))[1]), as.numeric(unlist(str_split(ul54_pos, "-"))[1]), as.numeric(unlist(str_split(ul56_pos, "-"))[1]), as.numeric(unlist(str_split(ul89_pos, "-"))[1]), as.numeric(unlist(str_split(ul97_pos, "-"))[1])),
+    end   = c(as.numeric(unlist(str_split(ul27_pos, "-"))[2]), as.numeric(unlist(str_split(ul51_pos, "-"))[2]), as.numeric(unlist(str_split(ul54_pos, "-"))[2]), as.numeric(unlist(str_split(ul56_pos, "-"))[2]), as.numeric(unlist(str_split(ul89_pos, "-"))[2]), as.numeric(unlist(str_split(ul97_pos, "-"))[2]))
+  )
+
+  gene_df$midpoint <- (gene_df$start + gene_df$end) / 2
+
+
+  wgs_plot <- ggplot(depth_df, aes(position, log_depth)) +
+    geom_area(alpha = 0.7) +
+    geom_line(linewidth = 0.3) +
+    labs(x = "Genome Position", y = "log Depth") +
+    geom_rect(
+        data = gene_df,
+        aes(
+            xmin = start,
+            xmax = end,
+            ymin = -Inf,
+            ymax = Inf
+        ),
+        inherit.aes = FALSE,
+        fill = "lightblue",
+        alpha = 0.6
+    ) +
+    coord_cartesian(clip = "off") +
+    theme_classic() +
+  ggrepel::geom_text_repel(data = gene_df, aes(x = midpoint, y = Inf, label = gene), inherit.aes = FALSE, segment.color = NA)
 }
 
 
 ```
 
+```{r insuff_analysis}
+# table for AMR Gene Coverage
 
-::: {.landscape}
+cov <- coverage(
+    BamFile(bam_file)
+  )
+# Get known AMR mutation positions to mark on plot
+muts <- muts |>
+  rowwise() |>
+  mutate(
+    depth = mean(
+      as.numeric(
+        cov[[reference]][start:end]
+      )
+    ),
+    coverage_status = ifelse(depth >= threshold, "Sufficient", "Insufficient")
+  ) |>
+  ungroup()
 
-# Detected Mutations Characterised in the Literature
+insufficient <- muts |> filter(coverage_status == "Insufficient")
 
-```{r}
-if(nrow(resis_df)==0){
-  cat("No characterised resistance mutations were detected.")
-} else {
-  resis_df |> select(-CHROM) |> arrange(Gene, POS) |> gt() |> tab_spanner(
-      label = "GCV",
-      columns = c(Ganciclovir_EC50_ratio, ganciclovir_resistance)
-    ) |> tab_spanner(
-      label = "FOS",
-      columns = c(Foscarnet_EC50_ratio, foscarnet_resistance)
-    ) |> tab_spanner(
-      label = "CDV",
-      columns = c(Cidofovir_EC50_ratio, cidofovir_resistance)
-    ) |> tab_spanner(
-      label = "MBV",
-      columns = c(Maribavir_EC50_ratio, maribavir_resistance)
-    ) |> tab_spanner(
-      label = "LET",
-      columns = c(Letermovir_EC50_ratio, letermovir_resistance)
-    ) |> tab_spanner(
-      label = "Pulication",
-      columns = c(TITLE, Authors, Published_Year, DOI)
-    ) |> tab_spanner(
-      label = "Variant Caller Details",
-      columns = c(POS, REF, ALT, `DP[*]`, `AF[*]`, detected_by, n_callers)
-    ) |> cols_label(
-      Ganciclovir_EC50_ratio = html("EC50 ratio"),
-      ganciclovir_resistance = html("Level"),
-      Foscarnet_EC50_ratio = html("EC50 ratio"),
-      foscarnet_resistance = html("Level"),
-      Cidofovir_EC50_ratio = html("EC50 ratio"),
-      cidofovir_resistance = html("Level"),
-      Maribavir_EC50_ratio = html("EC50 ratio"),
-      maribavir_resistance = html("Level"),
-      Letermovir_EC50_ratio = html("EC50 ratio"),
-      letermovir_resistance = html("Level"),
-      `DP[*]` = html("Depth"),
-      `AF[*]` = html("Frequency")
-    ) |> tab_options(
-    table.font.size = px(7)
+if(nrow(insufficient) > 0){
+  coverage_summary <- insufficient |>
+  mutate(
+    Gene = str_extract(label, "^[^_]+"),
+    Codon = label |>
+      str_remove("^[^_]+_") |>       # remove UL97_
+      str_remove("^DEL") |>          # remove DEL
+      str_remove("[A-Z*]$")      # remove final AA or stop codon
+  ) |>
+  group_by(Gene) |>
+  summarise(
+    `Codons below threshold` = n(),
+    `Affected codons` = paste(Codon, collapse = ", "),
+    .groups = "drop"
   )
 }
 
 
 
+
 ```
 
 
-:::
+# Summary
+
+```{r summary_sent1}
+sentence1 <- NULL
+sentence2 <- NULL
+sentence3 <- NULL
+sentence4 <- NULL
+sentence5 <- NULL
+
+mutation_summary <- function(n, genes) {
+
+  if(n == 0) {
+    return("No resistance-associated mutations were detected across the assessed CMV resistance-associated genes.")
+  }
+
+  gene_text <- paste(genes, collapse = " and ")
+
+  if(n == 1) {
+    return(
+      paste0(
+        "One resistance-associated mutation was detected in the ",
+        gene_text,
+        " gene."
+      )
+    )
+  }
+
+  return(
+    paste0(
+      n,
+      " resistance-associated mutations were detected across the ",
+      gene_text,
+      " genes."
+    )
+  )
+}
+
+if(nrow(resis_df)==0){
+  n_muts <- 0
+} else {
+  n_muts <- length(tbl$`_data`$Mutation)
+}
+
+if(nrow(resis_df)==0){
+  n_genes <- 0
+} else {
+  n_genes <- unique(tbl$`_data`$Gene)
+}
+sentence1 <- mutation_summary(n_muts, n_genes)
+```
+
+```{r summary_sent2to4}
+if(nrow(resis_df)!=0){
+
+  long_df <- summary_table |> pivot_longer(cols = 3:7, names_to = "Drug", values_to = "Level")
+
+  high_level <- long_df |>
+    filter(Level == "High")
+
+  med_level <- long_df |>
+    filter(Level == "Medium")
+
+  low_level <- long_df |>
+    filter(Level == "Low")
+
+  if(nrow(high_level) > 0) {
+    
+    high_text <- paste0(
+      high_level$Mutation,
+      " (",
+      high_level$Drug,
+      ")",
+      collapse = "; "
+    )
+    
+    sentence2 <- paste0(
+      "High-level resistance-associated findings included ",
+      high_text,
+      "."
+    )
+  }
+
+  if(nrow(med_level) > 0) {
+    
+    med_text <- paste0(
+      med_level$Mutation,
+      " (",
+      med_level$Drug,
+      ")",
+      collapse = "; "
+    )
+    
+    sentence3 <- paste0(
+      "Medium-level resistance-associated findings included ",
+      med_text,
+      "."
+    )
+  } 
+
+  if(nrow(low_level) > 0) {
+    
+    low_text <- paste0(
+      low_level$Mutation,
+      " (",
+      low_level$Drug,
+      ")",
+      collapse = "; "
+    )
+    
+    sentence4 <- paste0(
+      "Low-level resistance-associated findings included ",
+      low_text,
+      "."
+    )
+  }
+}
+```
+
+
+```{r summary_sent5_print}
+if(length(unique(insufficient$start)) > 0){
+    n_genes <- length(unique(unlist(str_extract_all(insufficient$label, "UL\\d{2}"))))
+    all_genes <- unique(unlist(str_extract_all(insufficient$label, "UL\\d{2}")))
+    if(n_genes > 1){
+      gene_list <- paste0(paste0(all_genes[1:length(all_genes)-1], collapse = ", "), " and ", all_genes[length(all_genes)])
+    } else {
+      gene_list <- all_genes
+    }
+    sentence5 <- paste0(
+    "Coverage gaps (Section *AMR Gene Coverage* below) mean resistance loci in ", gene_list, " could not be fully assessed."
+  )
+}
+
+summary_text <- paste(
+  sentence1,
+  sentence2,
+  sentence3,
+  sentence4,
+  sentence5,
+  sep = " "
+)
+
+```
+
+`r summary_text`
+
+# Detected Mutations - Predicted Resistance
+
+```{r det_mut_table}
+if(nrow(resis_df)==0){
+  cat("No characterised resistance mutations were detected.")
+} else {
+  tbl |>
+    tab_options(
+      table.font.size = if (knitr::is_latex_output()) "8pt" else "100%"
+    )
+}
+
+```
+
+`r if(nrow(resis_df)!=0) "# Key Mutations Characterised in the Literature" else ""`
+
+`r if(nrow(resis_df)!=0) "Selected detected mutations with phenotypic data reported in peer-reviewed studies. EC50 fold-change ratios relative to wild-type are summarised; full per-publication data and variant-caller details are retained in the pipeline output directory." else ""`
+
+```{r key_mut_table}
+if(nrow(resis_df)!=0){
+  summary_df |> kable()
+}
+
+```
+
+
+# Mutations of Unknown Significance
+
+Additional variants identified with no established resistance interpretation:
+
+```{r unknown_sig_table}
+# Mutations of Unknown Significance
+if(nrow(all_muts)==0){
+  cat("No variants of unknown significance were detected.")
+} else {
+  all_muts <- all_muts |> gt() |>
+    tab_options(
+      table.font.size = if (knitr::is_latex_output()) "8pt" else "100%"
+    )
+  if (knitr::is_latex_output()) {
+    all_muts <- all_muts |> cols_hide(columns = Effect)
+  }
+  all_muts
+}
+```
+
 
 # AMR Gene Coverage
 
-**AMR Gene coverage**
+Codons of known AMR mutations with insufficient sequencing coverage (below the depth threshold of **`r threshold`**) could not be assessed in this sample. In total **`r length(unique(insufficient$start))` codon positions** across six resistance genes fell below threshold. The figure and table below shows where resistance calls should be interpreted with caution due to coverage gaps.
 
-```{r}
+```{r amr_cov_plot}
 #| fig-width: 16
 #| fig-height: 10
-
-cov <- coverage(readGAlignments(bam_file))
-min_depth <- 40
-
-muts <- read_tsv(bed_file, col_names = FALSE)
-colnames(muts) <- c("Genome", "start", "end", "label")
-mark_region <- muts
-
-mark_region <- mark_region |>
-  rowwise() |>
-  mutate(
-    depth = mean(
-      as.numeric(
-        cov[["NC_006273.2"]][start:end]
-      )
-    )
-  ) |>
-  ungroup()
-
-mark_region$coverage_status <- ifelse(
-  mark_region$depth >= min_depth,
-  "Sufficient",
-  "Insufficient"
-)
-ul27_mark <- mark_region |> filter(str_detect(label, "UL27"))
-ul51_mark <- mark_region |> filter(str_detect(label, "UL51"))
-ul54_mark <- mark_region |> filter(str_detect(label, "UL54"))
-ul56_mark <- mark_region |> filter(str_detect(label, "UL56"))
-ul89_mark <- mark_region |> filter(str_detect(label, "UL89"))
-ul97_mark <- mark_region |> filter(str_detect(label, "UL97"))
-
-track_df_ul27 <- LoadTrackFile(
-  track.file = bam_file,
-  format = "bam",
-  single.nuc = TRUE,
-  single.nuc.region = "NC_006273.2:33182-35008",
-  bin.size = 1
-)
-track_df_ul27$Type <- "UL27"
-
-track_df_ul51 <- LoadTrackFile(
-  track.file = bam_file,
-  format = "bam",
-  single.nuc = TRUE,
-  single.nuc.region = "NC_006273.2:74576-75049",
-  bin.size = 1
-)
-track_df_ul51$Type <- "UL51"
-
-track_df_ul54 <- LoadTrackFile(
-  track.file = bam_file,
-  format = "bam",
-  single.nuc = TRUE,
-  single.nuc.region = "NC_006273.2:78194-81922",
-  bin.size = 1
-)
-track_df_ul54$Type <- "UL54"
-
-track_df_ul56 <- LoadTrackFile(
-  track.file = bam_file,
-  format = "bam",
-  single.nuc = TRUE,
-  single.nuc.region = "NC_006273.2:84752-87304",
-  bin.size = 1
-)
-track_df_ul56$Type <- "UL56"
-
-track_df_ul89 <- LoadTrackFile(
-  track.file = bam_file,
-  format = "bam",
-  single.nuc = TRUE,
-  single.nuc.region = "NC_006273.2:133770-134906",
-  bin.size = 1
-)
-track_df_ul89$Type <- "UL89_A"
-
-track_df_ul97 <- LoadTrackFile(
-  track.file = bam_file,
-  format = "bam",
-  single.nuc = TRUE,
-  single.nuc.region = "NC_006273.2:141798-143921",
-  bin.size = 1
-)
-track_df_ul97$Type <- "UL97"
-
-if(max(track_df_ul27$score) < 40){
-  height <- 40
-} else {
-  height <- max(track_df_ul27$score)
-}
-ul27 <- ggplot(track_df_ul27, aes(x = start, y = score)) +
-  geom_area() +
-  theme(panel.grid = element_blank(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_rect(fill = NA), axis.line = element_line(linewidth = 0.5), strip.background = element_rect(fill = "#94e4ca", colour = "black", linewidth = 0.5), strip.text = element_text(colour = "black", face = "bold")) +
-  facet_grid(vars(Type)) +
-  labs(x = "Position", y = "Depth") + 
-  geom_rect(data = ul27_mark, inherit.aes = FALSE, aes(xmin = start, xmax = end, ymin = 0, ymax = Inf, fill = coverage_status)) +
-  scale_fill_manual(values = c(Sufficient = "grey", Insufficient = "red")) +
-  scale_y_continuous(limits = c(0, height))
-
-
-if(max(track_df_ul51$score) < 40){
-  height <- 40
-} else {
-  height <- max(track_df_ul51$score)
-}
-ul51 <- ggplot(track_df_ul51, aes(x = start, y = score)) +
-  geom_area() +
-  theme(panel.grid = element_blank(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_rect(fill = NA), axis.line = element_line(linewidth = 0.5), strip.background = element_rect(fill = "#94e4ca", colour = "black", linewidth = 0.5), strip.text = element_text(colour = "black", face = "bold")) +
-  facet_grid(vars(Type)) +
-  labs(x = "Position", y = "Depth") + 
-  geom_rect(data = ul51_mark, inherit.aes = FALSE, aes(xmin = start, xmax = end, ymin = 0, ymax = Inf, fill = coverage_status)) +
-  scale_fill_manual(values = c(Sufficient = "grey", Insufficient = "red")) +
-  scale_y_continuous(limits = c(0, height))
-
-
-if(max(track_df_ul54$score) < 40){
-  height <- 40
-} else {
-  height <- max(track_df_ul54$score)
-}
-ul54 <- ggplot(track_df_ul54, aes(x = start, y = score)) +
-  geom_area() +
-  theme(panel.grid = element_blank(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_rect(fill = NA), axis.line = element_line(linewidth = 0.5), strip.background = element_rect(fill = "#94e4ca", colour = "black", linewidth = 0.5), strip.text = element_text(colour = "black", face = "bold")) +
-  facet_grid(vars(Type)) +
-  labs(x = "Position", y = "Depth") + 
-  geom_rect(data = ul54_mark, inherit.aes = FALSE, aes(xmin = start, xmax = end, ymin = 0, ymax = Inf, fill = coverage_status)) +
-  scale_fill_manual(values = c(Sufficient = "grey", Insufficient = "red")) +
-  scale_y_continuous(limits = c(0, height))
-
-if(max(track_df_ul56$score) < 40){
-  height <- 40
-} else {
-  height <- max(track_df_ul56$score)
-}
-ul56 <- ggplot(track_df_ul56, aes(x = start, y = score)) +
-  geom_area() +
-  theme(panel.grid = element_blank(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_rect(fill = NA), axis.line = element_line(linewidth = 0.5), strip.background = element_rect(fill = "#94e4ca", colour = "black", linewidth = 0.5), strip.text = element_text(colour = "black", face = "bold")) +
-  facet_grid(vars(Type)) +
-  labs(x = "Position", y = "Depth") + 
-  geom_rect(data = ul56_mark, inherit.aes = FALSE, aes(xmin = start, xmax = end, ymin = 0, ymax = Inf, fill = coverage_status)) +
-  scale_fill_manual(values = c(Sufficient = "grey", Insufficient = "red")) +
-  scale_y_continuous(limits = c(0, height))
-
-if(max(track_df_ul89$score) < 40){
-  height <- 40
-} else {
-  height <- max(track_df_ul89$score)
-}
-ul89 <- ggplot(track_df_ul89, aes(x = start, y = score)) +
-  geom_area() +
-  theme(panel.grid = element_blank(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_rect(fill = NA), axis.line = element_line(linewidth = 0.5), strip.background = element_rect(fill = "#94e4ca", colour = "black", linewidth = 0.5), strip.text = element_text(colour = "black", face = "bold")) +
-  facet_grid(vars(Type)) +
-  labs(x = "Position", y = "Depth") + 
-  geom_rect(data = ul89_mark, inherit.aes = FALSE, aes(xmin = start, xmax = end, ymin = 0, ymax = Inf, fill = coverage_status)) +
-  scale_fill_manual(values = c(Sufficient = "grey", Insufficient = "red")) +
-  scale_y_continuous(limits = c(0, height))
-
-if(max(track_df_ul97$score) < 40){
-  height <- 40
-} else {
-  height <- max(track_df_ul97$score)
-}
-ul97 <- ggplot(track_df_ul97, aes(x = start, y = score)) +
-  geom_area() +
-  theme(panel.grid = element_blank(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_rect(fill = NA), axis.line = element_line(linewidth = 0.5), strip.background = element_rect(fill = "#94e4ca", colour = "black", linewidth = 0.5), strip.text = element_text(colour = "black", face = "bold")) +
-  facet_grid(vars(Type)) +
-  labs(x = "Position", y = "Depth") + 
-  geom_rect(data = ul97_mark, inherit.aes = FALSE, aes(xmin = start, xmax = end, ymin = 0, ymax = Inf, fill = coverage_status)) +
-  scale_fill_manual(values = c(Sufficient = "grey", Insufficient = "red")) +
-  scale_y_continuous(limits = c(0, height))
-
-plot <- plot_grid(ul27, ul51, ul54, ul56, ul89, ul97, ncol = 1, align = "hv")
 
 plot
 
 ```
 
-
-*As highlighted in the above figure, the following codons of known AMR mutations had insufficient coverage to be detected in this sample*
-
-```{r}
-insufficient <- mark_region |> filter(coverage_status == "Insufficient")
-
-insufficient <- separate_wider_delim(insufficient, "label", delim = "_", names = c("Gene", "Mutation")) |> rowwise() |> mutate(codon = paste0(str_extract_all(Mutation, "\\d{1,4}"), collapse = "-")) |> select(Genome, Gene, codon, start, end, depth) |> arrange(codon)
-
-insufficient |> gt()
-
-```
-
-# Mutations of Unknown Significance
-
-*The below mutations were identified but are of unknown significance*
-
-```{r}
-all_muts <- read_tsv(all_muts_file)
-if(nrow(all_muts)==0){
-  cat("No variants of unknown significance were detected.")
+```{r amr_cov_table}
+if(nrow(insufficient) > 0){
+  coverage_summary |> arrange(desc(`Codons below threshold`)) |> gt() |>
+    tab_options(
+      table.font.size = if (knitr::is_latex_output()) "8pt" else "100%"
+    )
 } else {
-  genes <- c("UL27", "UL51", "UL54", "UL56", "UL89", "UL97")
-  all_muts <- all_muts |> filter(`ANN[*].GENE` %in% genes) |> arrange(factor(`ANN[*].GENE`, levels=genes), POS) |> filter(!AA_change %in% resis_df$Mutation) |> select(-sampleID)#this could filter out mutations in the wrong gene... will need to fix
-  all_muts |> gt()
+  cat("All codons of known AMR mutations had sufficient sequencing coverage.")
 }
 
+```
 
+
+`r if(protocol == "wgs") "# Whole Genome Sequencing Coverage Plot" else ""`
+
+```{r}
+if(protocol == "wgs"){
+  wgs_plot
+}
 
 ```
+
+The database used to generate this report was **`r params$database_name`** version **`r params$database_version`**.
+
+*This report has been generated using the CMVResistanceFinder Nextflow pipeline found here: [viRusneRd5/CMVResistanceFinder](https://github.com/viRusneRd5/CMVResistanceFinder)*
+
+*This pipeline was written by Jocelyn Hume at the University of Queensland <j.hume@uq.edu.au>*
+
+***The results in this report are for research use only and should not be used to inform clinical practice.*** 
+
+***This report only contains a summary of the results, the complete per-publication EC50 data, full coverage tables and variant-caller metrics are available in the pipeline output directory and should be reviewed alongside this report.***
+
+`r if(nrow(resis_df)!=0) "# References" else ""`
+

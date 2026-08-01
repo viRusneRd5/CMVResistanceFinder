@@ -43,7 +43,8 @@ def main():
         "TITLE",
         "Authors",
         "Published_Year",
-        "DOI"
+        "DOI",
+        "BIBTEXKEY"
     ]
 
     variant_cols = [

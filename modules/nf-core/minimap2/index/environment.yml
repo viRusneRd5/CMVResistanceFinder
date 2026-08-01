@@ -4,5 +4,4 @@ channels:
   - conda-forge
   - bioconda
 dependencies:
-  # renovate: datasource=conda depName=bioconda/snpsift
-  - bioconda::snpsift=5.4.0c
+  - bioconda::minimap2=2.30

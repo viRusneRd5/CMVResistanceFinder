@@ -118,13 +118,6 @@
                             "vcf_gather_bcftools"
                         ]
                     },
-                    "ivar/variants": {
-                        "branch": "master",
-                        "git_sha": "3dd0d7a2ab0e2333bcf198c7bf0b8744c24413dc",
-                        "installed_by": [
-                            "modules"
-                        ]
-                    },
                     "kraken2/kraken2": {
                         "branch": "master",
                         "git_sha": "d67d33d5925fcec4691b499670fa2bd926fd2be5",
@@ -146,6 +139,13 @@
                             "modules"
                         ]
                     },
+                    "minimap2/index": {
+                        "branch": "master",
+                        "git_sha": "135d883a43b1a2324b4112cd270cf22e20835533",
+                        "installed_by": [
+                            "modules"
+                        ]
+                    },
                     "multiqc": {
                         "branch": "master",
                         "git_sha": "98403d15b0e50edae1f3fec5eae5e24982f1fade",
@@ -156,13 +156,6 @@
                     "picard/markduplicates": {
                         "branch": "master",
                         "git_sha": "6d46786420b4d7bc88eba026eb389c0c5535d120",
-                        "installed_by": [
-                            "modules"
-                        ]
-                    },
-                    "samtools/coverage": {
-                        "branch": "master",
-                        "git_sha": "9339809fcb90af8a8b7051e6cd914894d5c52002",
                         "installed_by": [
                             "modules"
                         ]
@@ -182,6 +175,13 @@
                         ]
                     },
                     "samtools/sort": {
+                        "branch": "master",
+                        "git_sha": "9339809fcb90af8a8b7051e6cd914894d5c52002",
+                        "installed_by": [
+                            "modules"
+                        ]
+                    },
+                    "samtools/stats": {
                         "branch": "master",
                         "git_sha": "9339809fcb90af8a8b7051e6cd914894d5c52002",
                         "installed_by": [

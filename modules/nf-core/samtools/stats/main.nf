@@ -1,4 +1,4 @@
-process SAMTOOLS_COVERAGE {
+process SAMTOOLS_STATS {
     tag "${meta.id}"
     label 'process_single'
 
@@ -12,8 +12,8 @@ process SAMTOOLS_COVERAGE {
     tuple val(meta2), path(fasta), path(fai)
 
     output:
-    tuple val(meta), path("*.txt"), emit: coverage
-    tuple val("${task.process}"), val('samtools'), eval("samtools version | sed '1!d;s/.* //'"), topic: versions, emit: versions_samtools
+    tuple val(meta), path("*.stats"), emit: stats
+    tuple val("${task.process}"), val('samtools'), eval('samtools version | sed "1!d;s/.* //"'), emit: versions_samtools, topic: versions
 
     when:
     task.ext.when == null || task.ext.when
@@ -22,23 +22,19 @@ process SAMTOOLS_COVERAGE {
     def args = task.ext.args ?: ''
     def prefix = task.ext.prefix ?: "${meta.id}"
     def reference = fasta ? "--reference ${fasta}" : ""
-
-    if (input.name.endsWith('.cram') && (!fasta || !fai)) {
-        error("CRAM input file provided but no reference FASTA and/or FAI index for said reference, both are required for CRAM input.")
-    }
     """
     samtools \\
-        coverage \\
+        stats \\
         ${args} \\
-        -o ${prefix}.txt \\
+        --threads ${task.cpus} \\
         ${reference} \\
-        ${input}
+        ${input} \\
+        > ${prefix}.stats
     """
 
     stub:
     def prefix = task.ext.prefix ?: "${meta.id}"
     """
-    echo "#rname\tstartpos\tendpos\tnumreads\tcovbases\tcoverage\tmeandepth\tmeanbaseq\tmeanmapq" > ${prefix}.txt
-    echo "chr21\t16570000\t16610000\t8741\t39996\t99.9875\t32.4854\t29.6\t59.8" >> ${prefix}.txt
+    touch ${prefix}.stats
     """
 }

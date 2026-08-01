@@ -8,8 +8,8 @@ process SNPEFF_BUILD {
         'quay.io/biocontainers/snpeff:5.0--hdfd78af_1' }"
 
     input:
-    path fasta
-    path gff
+    tuple val(meta), path(fasta)
+    path(gff)
 
     output:
     path 'snpeff_db'   , emit: db
