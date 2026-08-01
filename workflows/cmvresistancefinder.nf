@@ -95,7 +95,7 @@ workflow CMVRESISTANCEFINDER {
 
 
     //
-    // Create raw data channel
+    // SUBWORKFLOW: Create raw data channel
     //
     INPUT_CHECK(sample_input)
     ch_raw_fastqs = ch_raw_fastqs.mix(INPUT_CHECK.out.reads) // meta[id, reads]
