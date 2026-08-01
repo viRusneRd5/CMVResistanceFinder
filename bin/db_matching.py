@@ -2,6 +2,7 @@
 
 import pandas as pd
 import argparse
+import re
 
 
 def mutation_match(query_mutation, database_mutation):
@@ -63,10 +64,20 @@ def main():
     matches = []
 
     for _, variant in variants.iterrows():
-        gene = variant["ANN[*].GENE"]
+        gene = str(variant["ANN[*].GENE"])
+
+        # Extract UL gene name if present
+        match = re.search(r'(UL\d+)', gene, re.IGNORECASE)
+        if match:
+            gene = match.group(1).upper()
+        else:
+            gene = gene.upper()
+
+        gene_db = database[
+            database["Gene"].astype(str).str.upper() == gene
+        ]
         mutation = variant["AA_change"]
 
-        gene_db = database[database["Gene"] == gene]
 
         for _, record in gene_db.iterrows():
             if mutation_match(mutation, record["Mutation"]):

@@ -26,6 +26,13 @@ parser.add_argument(
 )
 
 parser.add_argument(
+    "--min_freq",
+    required=True,
+    type=float,
+    help="Minimum variant frequency"
+)
+
+parser.add_argument(
     "files",
     nargs="+",
     help="Input SnpSift files"
@@ -36,6 +43,7 @@ args = parser.parse_args()
 sampleID = args.sample
 output_file = args.output
 input_files = args.files
+min_freq = args.min_freq
 
 # ------------------------------------------------------------------
 # Read and process files
@@ -98,7 +106,7 @@ combined["AF[*]"] = pd.to_numeric(
 combined = combined[
     ~(
     (combined["variant_caller"].str.lower() == "lofreq") &
-    (combined["AF[*]"] < 0.05)
+    (combined["AF[*]"] < min_freq)
     )
 ]
 

@@ -366,52 +366,61 @@ workflow CMVRESISTANCEFINDER {
         ch_merged_vcf = ch_merged_vcf.join(ch_snpsift_lofreq).map { meta, ivar, freebayes, lofreq ->
             tuple(meta, [ivar, freebayes, lofreq])
         }
-
         MERGE_FORMAT (
             ch_merged_vcf,
-            params.cmv_resis_db
+            params.cmv_resis_db,
+            params.min_freq
         )
         ch_resistance = MERGE_FORMAT.out.resistance
         ch_formatted = MERGE_FORMAT.out.formatted
     }
 
-    ch_quarto = ch_sorted_bam.join(ch_sort_bam_index).join(ch_resistance).join(ch_formatted)
-    ch_db_name = file(params.cmv_resis_db).baseName
 
-    gene_positions_ch = ch_genes_bed
-        .map { bed_file ->
-            def gene_positions = [:]
-            bed_file.eachLine { line ->
-                def (chr, start, end, gene) = line.tokenize('\t')
-                gene_positions[gene.toLowerCase()] = "${start}-${end}"
-            }
-            gene_positions
-        }
-        .first()
+    //
+    // MODULE: Output html report for each sample using quarto
+    //
+    if (!params.skip_sample_report){
+        ch_quarto = ch_sorted_bam.join(ch_sort_bam_index).join(ch_resistance).join(ch_formatted)
+        ch_db_name = file(params.cmv_resis_db).baseName
+        gene_positions_ch = ch_genes_bed
+            .map { bed_file ->
+                def gene_positions = [:]
+                bed_file.eachLine { line ->
+                    def (chr, start, end, gene) = line.tokenize('\t')
+                    gene_positions[gene.toLowerCase()] = "${start}-${end}"
+                }
+                gene_positions
+            }.first()
+        QUARTO_SAMPLE_REPORT (
+            ch_quarto,
+            ch_resis_mut_bed,
+            params.protocol,
+            params.report_author,
+            params.bibliography,
+            ch_db_name,
+            params.cmv_resis_db_version,
+            params.min_depth,
+            params.cmv_ref_name,
+            gene_positions_ch
+        )
+    }
 
 
-    //ch_quarto.view()
-    QUARTO_SAMPLE_REPORT (
-        ch_quarto,
-        ch_resis_mut_bed,
-        params.protocol,
-        params.report_author,
-        params.bibliography,
-        ch_db_name,
-        params.cmv_resis_db_version,
-        params.min_depth,
-        params.cmv_ref_name,
-        gene_positions_ch
-    )
-
+    //
+    // MODULE: Get coverage data for bam file to output in report
+    //
+    //TODO: Figure out wgs vs amplicon report output.
     ch_bam_bai = ch_sorted_bam.join(ch_sort_bam_index)
     SAMTOOLS_COVERAGE (
         ch_bam_bai,
         ch_genes_bed,
         params.min_depth
     )
-
     ch_coverages = SAMTOOLS_COVERAGE.out.coverage.map { meta, coverage -> coverage }.collect()
+
+    //
+    // MODULE: Summarise coverage/depth and mutation results for whole run and output run summary report using quarto.
+    //
     ch_resistances = ch_resistance.map { meta, resistance -> resistance }.collect()
     ch_total_count = ch_raw_fastqs.count()
     QUARTO_RUN_REPORT (

@@ -51,9 +51,9 @@ If you want to perform host-removal, you will need to download the hostile refer
 ```bash
 wget https://objectstorage.uk-london-1.oraclecloud.com/n/lrbvkel2wjot/b/human-genome-bucket/o/human-t2t-hla.fa.gz
 
-bowtie2-build /path/to/hostile_reference/human-t2t-hla.fa.gz /path/to/hostile_bowtie_index
+bowtie2-build /path/to/hostile_reference/human-t2t-hla.fa.gz /path/to/hostile_reference/hostile_bowtie_index
 ```
-If you do not wish to perform host-removal, add ```bash --skip_host_removal false ``` in place of ```bash --hostile_reference_path <path/to/hostile_reference>``` below.
+If you do not wish to perform host-removal, add ```bash --skip_host_removal false ``` in place of ```bash --hostile_reference_path </path/to/hostile_reference>``` below.
 
 *Kraken2 database*
 
@@ -61,7 +61,7 @@ If you wish to run Kraken2 to perform taxonomic classification on your reads pri
 
 ```bash
 wget https://genome-idx.s3.amazonaws.com/kraken/k2_viral_20260226.tar.gz
-tar -xzvf /path/to/k2_viral_20260226.tar.gz
+tar -xzvf /path/to/kraken_database/k2_viral_20260226.tar.gz
 ```
 
 
@@ -115,7 +115,7 @@ This primary purpose of this pipeline is to identify mutations in the six genes 
 
 Sequencing CMV usually requires enrichment, whether this is probe hybridisation with PCR or just PCR. This means we need to duplicate the reads to be able to detect it with sequencing, especially when dealing with host DNA as well. Yes, we are assuming that all reads are amplified equally to get accurate variant frequencies, but if we were to remove duplicates, we may inadvertantly enhance minority variants and overstate their importance.
 
-**Why is the default threshold's minimum 40 read depth, read quality 20, 0.5 (5%) variant frequency etc.?**
+**Why is the default threshold's minimum 40 read depth, read quality 20, 0.05 (5%) variant frequency etc.?**
 
 I don't really have a good reason for you. We want good quality reads so we can be more confident in the variants we are calling. 40 seemed like a good depth threshold for decent confidence in a variant and less than 5% frequency is likely not clinically relevant, so this is what I set. If you need to adjust the depth or variant frequency thresholds, you can change these parameters in the command line when you run the pipeline, or make a custom parameter/config file. I haven't added in the parameter to adjust the read quality, but if people ask for it, I might be able to.
 
