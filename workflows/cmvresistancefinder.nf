@@ -115,13 +115,12 @@ workflow CMVRESISTANCEFINDER {
     //
     if (params.trimmer == "fastp") {
         FASTP (
-            ch_raw_fastqs.map { meta, reads -> tuple(meta, reads, '') },
+            ch_raw_fastqs.map { meta, reads -> tuple(meta, reads, []) },
             false,
             false,
             false
         )
         ch_trimmed_fastq = ch_trimmed_fastq.mix(FASTP.out.reads)
-        ch_multiqc_files = ch_multiqc_files.mix(FASTP.out.json).mix(FASTP.out.html).collect()
     }
 
     //

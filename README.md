@@ -156,7 +156,9 @@ If the demand is high enough, I might be able to make this work.
 
 This is complicated. The database used in this pipeline was compiled from a huge systematic review. Honestly, it is a bit of a mess, but if you start changing the database it will break the report writing. If you are aware of some mutations that are missing from the database, please get in touch and I can add it into the next update.
 
+**How long does the pipeline take to run?**
 
+This depends on how large your fastq files are, and whether you are running this on a HPC or a laptop. Running 33 paired end Illumina fastq files sequenced on a MiSeq i100 5M 300-cycle kit took less than 10 minutes to run with 48GB memory and 24 threads.
 
 
 ## Credits
