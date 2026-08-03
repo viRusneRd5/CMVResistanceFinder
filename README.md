@@ -14,12 +14,10 @@
 
 ## Introduction
 
-**viRusneRd5/cmvresistancefinder** is a bioinformatics pipeline that identifies variants from short-read sequencing data and compares to a database of known clinically relevant mutations. This pipeline is for research use only and should not be used for informing clinical practice.
+**viRusneRd5/cmvresistancefinder** is a bioinformatics pipeline that identifies variants from short-read sequencing data and compares to a database of known clinically relevant mutations. **This pipeline is for research use only and should not be used for informing clinical practice.**
 
 <!-- TODO nf-core:
-   Complete this sentence with a 2-3 sentence summary of what types of data the pipeline ingests, a brief overview of the
-   major pipeline sections and the types of output it produces. You're giving an overview to someone new
-   to nf-core here, in 15-20 seconds. For an example, see https://github.com/nf-core/rnaseq/blob/master/README.md#introduction
+   Complete this sentence with a 2-3 sentence summary of what types of data the pipeline ingests, a brief overview of the major pipeline sections and the types of output it produces. You're giving an overview to someone new to nf-core here, in 15-20 seconds. For an example, see https://github.com/nf-core/rnaseq/blob/master/README.md#introduction
 -->
 
 <!-- TODO nf-core: Include a figure that guides the user through the major workflow steps. Many nf-core
@@ -53,7 +51,7 @@ wget https://objectstorage.uk-london-1.oraclecloud.com/n/lrbvkel2wjot/b/human-ge
 
 bowtie2-build /path/to/hostile_reference/human-t2t-hla.fa.gz /path/to/hostile_reference/hostile_bowtie_index
 ```
-If you do not wish to perform host-removal, add ```bash --skip_host_removal false ``` in place of ```bash --hostile_reference_path </path/to/hostile_reference>``` below.
+If you do not wish to perform host-removal, add ```bash --skip_host_removal true ``` in place of ```bash --hostile_reference_path </path/to/hostile_reference>``` below.
 
 *Kraken2 database*
 
@@ -63,8 +61,9 @@ If you wish to run Kraken2 to perform taxonomic classification on your reads pri
 wget https://genome-idx.s3.amazonaws.com/kraken/k2_viral_20260226.tar.gz
 tar -xzvf /path/to/kraken_database/k2_viral_20260226.tar.gz
 ```
+If you do not wish to perform kraken2 classification, add ```bash --skip_kraken2 true ``` in place of ```bash --kraken2_db </path/to/kraken2_virus_db>``` below.
 
-
+You can also use the Kraken2 standard database (up to date datases [found here](https://benlangmead.github.io/aws-indexes/k2)), but this database is larger and may take longer to run. Note that the pluspf database will not identify viruses, so should not be used here.
 
 Now, you can run the pipeline using:
 
@@ -85,8 +84,7 @@ nextflow run viRusneRd5/cmvresistancefinder \
 > [!WARNING]
 > Please provide pipeline parameters via the CLI or Nextflow `-params-file` option. Custom config files including those provided by the `-c` Nextflow option can be used to provide any configuration _**except for parameters**_; see [docs](https://nf-co.re/docs/running/run-pipelines#using-parameter-files).
 
-
-
+This pipeline is still a work in progress and any feedback or suggestions are welcome!
 
 ## FAQ's
 
@@ -160,6 +158,13 @@ This is complicated. The database used in this pipeline was compiled from a huge
 
 This depends on how large your fastq files are, and whether you are running this on a HPC or a laptop. Running 33 paired end Illumina fastq files sequenced on a MiSeq i100 5M 300-cycle kit took less than 10 minutes to run with 48GB memory and 24 threads.
 
+**Why do I have to use all three variant callers, why can't I choose which one to use?**
+
+When developing this pipeline, I wanted to use multiple variant callers to be more confident in the variants that are called, and to make sure we aren't missing mutations. For this reason, the pipeline performs variant calling using all three variant callers and then combines the outputs of these.
+
+**Why doesn't this pipeline perform primer trimming using IVAR trim?**
+
+I looked into this option originally, considering my first focus was amplicon sequencing analysis, however I found that this removed too many reads and considerably dropped my sequencing coverage. My amplicon assay was designed outside of any regions containing AMR mutations and so it was decided not to include IVAR trim in the pipeline.
 
 ## Credits
 

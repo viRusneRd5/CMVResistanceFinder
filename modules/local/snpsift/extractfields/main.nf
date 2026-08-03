@@ -12,7 +12,7 @@ process SNPSIFT_EXTRACTFIELDS {
 
     output:
     tuple val(meta), path("*.snpsift.txt"), emit: txt
-    path "versions.yml"                   , emit: versions
+    tuple val("${task.process}"), val('snpsift'), eval("SnpSift -version 2>&1 | grep -oE '[0-9]+\\.[0-9]+[a-z]?'"), emit: versions_snpsift, topic: versions
 
     when:
     task.ext.when == null || task.ext.when
@@ -33,9 +33,9 @@ process SNPSIFT_EXTRACTFIELDS {
         extractFields \\
         -s "," \\
         -e "." \\
-        $args \\
         $vcf \\
         CHROM POS REF ALT "DP[*]" "AF[*]" \\
+        $args \\
         "ANN[*].GENE" "ANN[*].GENEID" \\
         "ANN[*].IMPACT" "ANN[*].EFFECT" \\
         "ANN[*].FEATURE" "ANN[*].FEATUREID" \\

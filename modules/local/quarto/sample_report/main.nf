@@ -2,7 +2,7 @@ process QUARTO_SAMPLE_REPORT {
     tag "${meta.id}"
     label "process_medium"
 
-    conda "conda-forge::quarto==1.9.38 conda-forge::r-rmarkdown=2.29 r-pacman r-cowplot r-tidyverse bioconda::bioconductor-genomicalignments r-gt r-knitr r-rmarkdown conda-forge::r-htmltools bioconda::bioconductor-rsamtools genomedk::tinytex"
+    conda "conda-forge::quarto==1.9.38 conda-forge::r-rmarkdown=2.29 r-pacman r-cowplot r-tidyverse bioconda::bioconductor-genomicalignments r-gt r-knitr r-rmarkdown conda-forge::r-htmltools bioconda::bioconductor-rsamtools genomedk::tinytex conda-forge::r-ggrepel"
 
     input:
     tuple val(meta), path(bam), path(bai), path(resistance), path(formatted) //sorted bam file, resistance and formatted output files from MERGE_FORMAT
@@ -18,6 +18,7 @@ process QUARTO_SAMPLE_REPORT {
 
     output:
     tuple val(meta), path("${meta.id}.html")
+    tuple val("${task.process}"), val('quarto'), eval('quarto -v'), emit: versions_quarto, topic: versions
 
     script:
     def ul27_pos = gene_positions['ul27']

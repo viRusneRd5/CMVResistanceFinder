@@ -24,7 +24,7 @@ workflow PIPELINE_PREPARATION {
 
     main:
 
-    ch_versions = Channel.empty()
+    //ch_versions = Channel.empty()
 
     //
     // Create chromosome sizes file
@@ -80,7 +80,7 @@ workflow PIPELINE_PREPARATION {
     )
     ch_snpeff_db     = SNPEFF_BUILD.out.db
     ch_snpeff_config = SNPEFF_BUILD.out.config
-    ch_versions      = ch_versions.mix(SNPEFF_BUILD.out.versions)
+    //ch_versions      = ch_versions.mix(SNPEFF_BUILD.out.versions)
 
 
     //
@@ -105,5 +105,5 @@ workflow PIPELINE_PREPARATION {
     snpeff_config        = ch_snpeff_config        // path: snpeff.config
     cmv_ref_index        = ch_ref_index            // path: genome.bt2 (bowtie2) .mmi (minimap2) bwamem3 directory
     resis_bed            = ch_resis_bed            // path: resistance_sites.bed
-    versions             = ch_versions             // channel: [ versions.yml ]
+    //versions             = ch_versions             // channel: [ versions.yml ]
 }

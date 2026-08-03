@@ -13,6 +13,7 @@ process QUARTO_RUN_REPORT {
 
     output:
     path("${run_name}.html")
+    tuple val("${task.process}"), val('quarto'), eval('quarto -v'), emit: versions_quarto, topic: versions
 
     script:
     def prefix = task.ext.prefix ?: "${run_name}"
@@ -26,4 +27,6 @@ process QUARTO_RUN_REPORT {
         -P n_samples:${n_samples} \
         --output ${prefix}.html
     """
+
+    //TODO figure out stub here, add parameters to yml file, 
 }

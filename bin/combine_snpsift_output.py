@@ -56,7 +56,7 @@ for file in input_files:
     df = pd.read_csv(file, sep="\t", dtype=str)
 
     # Equivalent to separate_longer_delim() on columns 5:ncol(df)
-    explode_cols = list(df.columns[6:])
+    explode_cols = explode_cols = [c for c in df.columns if "[*]." in c]
 
     for col in explode_cols:
         df[col] = (
@@ -85,17 +85,47 @@ for file in input_files:
 
     dfs.append(df)
 
-# ------------------------------------------------------------------
-# Combine all callers
-# ------------------------------------------------------------------
+## ------------------------------------------------------------------
+## Combine all callers
+## ------------------------------------------------------------------
 
 combined = pd.concat(dfs, ignore_index=True)
 
-# Remove exact duplicate rows
+## Remove exact duplicate rows
+
 combined = combined.drop_duplicates()
 
+# Recalculate AF for FreeBayes using AO/(AO+RO)
+
+freebayes_mask = (
+    combined["variant_caller"].str.lower() == "freebayes"
+)
+
+# Only run if the columns exist
+if "AO[*]" in combined.columns and "RO[*]" in combined.columns:
+
+    combined["AO[*]"] = pd.to_numeric(
+        combined["AO[*]"],
+        errors="coerce"
+    )
+
+    combined["RO[*]"] = pd.to_numeric(
+        combined["RO[*]"],
+        errors="coerce"
+    )
+
+    combined.loc[freebayes_mask, "AF[*]"] = (
+        combined.loc[freebayes_mask, "AO[*]"]
+        /
+        (
+            combined.loc[freebayes_mask, "AO[*]"]
+            + combined.loc[freebayes_mask, "RO[*]"]
+        )
+    )
+
 # ----------------------------------------------------
-# Filter LoFreq variants with AF < 0.05
+# Recalculate AF for FreeBayes
+# AF = AO / (AO + RO)
 # ----------------------------------------------------
 
 combined["AF[*]"] = pd.to_numeric(
@@ -103,10 +133,36 @@ combined["AF[*]"] = pd.to_numeric(
     errors="coerce"
 )
 
+combined["AO[*]"] = pd.to_numeric(
+    combined["AO[*]"],
+    errors="coerce"
+)
+
+combined["RO[*]"] = pd.to_numeric(
+    combined["RO[*]"],
+    errors="coerce"
+)
+
+freebayes_mask = (
+    combined["variant_caller"].str.lower() == "freebayes"
+)
+
+combined.loc[freebayes_mask, "AF[*]"] = (
+    combined.loc[freebayes_mask, "AO[*]"] /
+    (
+        combined.loc[freebayes_mask, "AO[*]"] +
+        combined.loc[freebayes_mask, "RO[*]"]
+    )
+)
+
+## ----------------------------------------------------
+## Filter LoFreq variants with AF < 0.05
+## ----------------------------------------------------
+
 combined = combined[
     ~(
-    (combined["variant_caller"].str.lower() == "lofreq") &
-    (combined["AF[*]"] < min_freq)
+        (combined["variant_caller"].str.lower() == "lofreq") &
+        (combined["AF[*]"] < min_freq)
     )
 ]
 
@@ -171,11 +227,6 @@ agg_dict = {
 for col in combined.columns:
     if col not in variant_cols + ["variant_caller", "DP[*]", "AF[*]"]:
         agg_dict[col] = "first"
-
-combined.loc[
-    combined["variant_caller"].str.lower() == "freebayes",
-    "AF[*]"
-] = pd.NA
 
 merged = (
     combined

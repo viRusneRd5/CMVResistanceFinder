@@ -450,10 +450,11 @@ workflow CMVRESISTANCEFINDER {
             "${process}:\n${tool_versions.join('\n')}"
         }
 
-    def ch_collated_versions = softwareVersionsToYAML(ch_versions)
+    def ch_collated_versions = softwareVersionsToYAML(ch_versions.mix(topic_versions.versions_file))
+        .mix(topic_versions_string)
         .collectFile(
-            storeDir: "${params.outdir}/pipeline_info",
-            name: 'nf_core_'  +  'cmvresistancefinder_software_'  + 'mqc_'  + 'versions.yml',
+            storeDir: "${outdir}/pipeline_info",
+            name:  'cmvresistancefinder_software_'  + 'mqc_'  + 'versions.yml',
             sort: true,
             newLine: true
         )

@@ -15,10 +15,10 @@ process SNPEFF_ANN {
 
     output:
     tuple val(meta), path("*.vcf")      , emit: vcf
-    tuple val(meta), path("*.csv")      , emit: csv
-    tuple val(meta), path("*.genes.txt"), emit: txt
-    tuple val(meta), path("*.html")     , emit: html
-    path "versions.yml"                 , emit: versions
+    tuple val(meta), val("${task.process}"), val('snpeff'), path("*.csv"), topic: multiqc_files, emit: report
+    tuple val(meta), val("${task.process}"), val('snpeff'), path("*.html"), topic: multiqc_files, emit: summary_html
+    tuple val(meta), val("${task.process}"), val('snpeff'), path("*.genes.txt"), topic: multiqc_files, emit: genes_txt
+    tuple val("${task.process}"), val('snpeff'), eval("snpEff -version 2>&1 | cut -f 2 -d '\t'"), topic: versions, emit: versions_snpeff
 
     when:
     task.ext.when == null || task.ext.when
@@ -44,10 +44,5 @@ process SNPEFF_ANN {
         -csvStats ${prefix}.snpeff.csv \\
         > ${prefix}.snpeff.vcf
     mv snpEff_summary.html ${prefix}.snpeff.summary.html
-
-    cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        snpeff: \$(echo \$(snpEff -version 2>&1) | cut -f 2 -d ' ')
-    END_VERSIONS
     """
 }
