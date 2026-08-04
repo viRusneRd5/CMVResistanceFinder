@@ -60,7 +60,7 @@ nextflow run viRusneRd5/cmvresistancefinder \
 
 **Can I run this pipeline with a fasta file input from Sanger sequencing?**
 
-If the demand is high enough, I might be able to make this work. 
+If the demand is high enough, I might be able to make this work, but currently this is not possible.
 
 **What if I want to provide my own database?**
 

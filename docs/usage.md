@@ -180,7 +180,9 @@ Specify the path to a specific config file (this is a core Nextflow command). Se
 
 ### `--seq_type`
 
-Specify if the samples in the run are either `'long-read'` (ONT) or `'short-read'` (Illumina).
+Specify if the samples in the run are either `'long-read'` (ONT) or `'short-read'` (Illumina). Default is `'short-read'`. If running long-read sequencing, the `--aligner` must be `minimap2`. 
+
+**Note:** The long-read function has only been tested on two publicly available long-read samples, and the results were not super promising, so use with caution! If you have long-read sequencing data you would like to share with me to optimise this function, please reach out!
 
 ### `--trimmer`
 
@@ -232,7 +234,7 @@ Currently, this must be set to `'all'` so that the pipeline will perform variant
 
 ### `--aligner`
 
-You can choose between three aligning tools - bwa-mem3, bowtie2 and minimap2. The default is minimap2 as I found this gave me the best coverage, but you may have one that you prefer.
+You can choose between three aligning tools - bwa-mem3, bowtie2 and minimap2. The default is minimap2 as I found this gave me the best coverage, but you may have one that you prefer. If running longread sequencing, this must be set to minimap2.
 
 ### `--min_depth`
 

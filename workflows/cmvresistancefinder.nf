@@ -304,7 +304,7 @@ workflow CMVRESISTANCEFINDER {
             .map { meta, bam, bai, bed ->
                 tuple(meta, bam, bai, bed)
             }
-
+        //TODO: this will currently only perform variant calling in the six resistance genes because of the bed file. Need to fix so that it will call variants everywhere if protocol is set to wgs.
 
         FREEBAYES (
             ch_freebayes,
@@ -343,7 +343,7 @@ workflow CMVRESISTANCEFINDER {
             .map { meta, bam, bed ->
                 tuple(meta, bam, bed)
             }
-
+        //TODO: this will currently only perform variant calling in the six resistance genes because of the bed file. Need to fix so that it will call variants everywhere if protocol is set to wgs.
         LOFREQ_CALL (
             ch_lofreq,
             params.cmv_ref_fasta
