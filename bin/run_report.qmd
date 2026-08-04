@@ -26,14 +26,11 @@ Run: **`r params$run`**
 Number of samples run:  **`r params$n_samples`**
 
 ```{r}
-#Things I want in here:
-#number of samples that had sufficient coverage for all genes
-#mutations detected across all samples
-#primer performance - future dream.
 library(tidyverse)
 library(plotly)
 library(DT)
 library(gt)
+library(htmltools)
 
 
 ```
@@ -142,19 +139,232 @@ resistance_df <- resistance_files |>
 if(nrow(resistance_df)==0){
   cat("No characterised resistance mutations were detected.")
 } else {
-  summary_table <- resistance_df |> mutate(across(ends_with("EC50_ratio"), as.numeric)) |> pivot_longer(cols = ends_with("EC50_ratio"), names_to="Drug", values_to="EC50") |> mutate(Drug = str_remove(Drug,"_EC50_ratio"))
+  colnames(resistance_df) <- gsub("ganciclovir", "Ganciclovir", colnames(resistance_df))
+  colnames(resistance_df) <- gsub("foscarnet", "Foscarnet", colnames(resistance_df))
+  colnames(resistance_df) <- gsub("cidofovir", "Cidofovir", colnames(resistance_df))
+  colnames(resistance_df) <- gsub("maribavir", "Maribavir", colnames(resistance_df))
+  colnames(resistance_df) <- gsub("letermovir", "Letermovir", colnames(resistance_df))
+  condensed_df <- resistance_df |> 
+    mutate(
+      across(
+        ends_with("EC50_ratio"),
+        as.character
+      )
+    ) |> 
+    pivot_longer(
+      cols = matches("(_EC50_ratio|_resistance)$"),
+      names_to = c("Drug", ".value"),
+      names_pattern = "(.*)_(EC50_ratio|resistance)"
+    ) |>
+    filter(!(is.na(EC50_ratio) & is.na(resistance)))
 
-  summary_table <- summary_table |> group_by(Sample, Gene, Mutation, Drug) |> summarise(Mean_EC50 = mean(EC50, na.rm=TRUE), Publications = n(), .groups="drop")
+  parse_ec50 <- function(x) {
 
-  summary_table <- summary_table |> mutate(Resistance = case_when(Mean_EC50 <2 ~ "Susceptible", Mean_EC50 <5 ~ "Low", Mean_EC50 <15 ~ "Medium", is.na(Mean_EC50) ~ "Unknown", TRUE ~ "High"))
+    if (is.null(x) || length(x) == 0)
+      return(numeric())
 
-  summary_table <- summary_table |> select(-Mean_EC50, -Publications) |> pivot_wider(names_from = "Drug", values_from = "Resistance") |> select(Sample, Gene, Mutation, Ganciclovir, Foscarnet, Cidofovir, Maribavir, Letermovir) |> arrange(Sample, Gene, Mutation)
+    x <- trimws(as.character(x))
+    x <- x[!is.na(x)]
 
+    out <- numeric()
+
+    for (v in x) {
+
+      v_lower <- tolower(v)
+
+      if (v_lower == "susceptible")
+        next
+
+      if (v_lower %in% c("resistance", "resistant"))
+        next
+
+      # Remove >, >=, <, <=
+      v <- gsub("^[<>]=?", "", v)
+
+      # Split values like 3.6/3.4 or 5.6\4.7
+      vals <- unlist(strsplit(v, "[/\\\\]"))
+
+      nums <- suppressWarnings(as.numeric(vals))
+
+      out <- c(out, nums[!is.na(nums)])
+    }
+
+    out
+  }
+
+  format_range <- function(x, digits = 1) {
+
+    # If every non-NA value is "Susceptible"
+    txt <- trimws(as.character(x))
+    txt <- txt[!is.na(txt)]
+
+    if (length(txt) > 0 &&
+        all(tolower(txt) == "susceptible")) {
+      return("Susceptible")
+    }
+
+    nums <- sort(parse_ec50(x))
+
+    if (length(nums) == 0)
+      return(NA_character_)
+
+    if (min(nums) == max(nums))
+      return(format(round(min(nums), digits), trim = TRUE))
+
+    sprintf(
+      "%s–%s",
+      format(round(min(nums), digits), trim = TRUE),
+      format(round(max(nums), digits), trim = TRUE)
+    )
+  }
+
+  levels <- c("Susceptible", "Low", "Medium", "High")
+
+  format_level <- function(x){
+
+    x <- factor(na.omit(x), levels = levels, ordered = TRUE)
+
+    if(length(x) == 0)
+      return(NA_character_)
+
+    lo <- min(x)
+    hi <- max(x)
+
+    if(lo == hi)
+      as.character(lo)
+    else
+      paste0(lo, "–", hi)
+  }
+
+  get_resistance_level <- function(x) {
+
+    case_when(
+      is.na(x) ~ "Unknown",
+      x < 2 ~ "Susceptible",
+      x < 5 ~ "Low",
+      x < 15 ~ "Medium",
+      TRUE ~ "High"
+    )
+  }
+
+  summarise_resistance <- function(x) {
+
+    txt <- trimws(tolower(as.character(x)))
+    txt <- txt[!is.na(txt)]
+
+    if (length(txt) > 0) {
+
+      if (all(txt == "susceptible"))
+        return("Susceptible")
+
+      if (all(txt %in% c("resistance", "resistant")))
+        return("Unknown")
+    }
+
+    nums <- sort(parse_ec50(x))
+
+    # No numeric values
+    if (length(nums) == 0)
+      return("Unknown")
+
+    levs <- factor(
+      get_resistance_level(nums),
+      levels = c("Unknown", "Susceptible", "Low", "Medium", "High"),
+      ordered = TRUE
+    )
+
+    lo <- min(levs)
+    hi <- max(levs)
+
+    if (lo == hi)
+      as.character(lo)
+    else
+      paste0(lo, "–", hi)
+  }
+
+  summary_df <- condensed_df |>
+    group_by(Gene, Mutation, Drug) |>
+    summarise(
+      `EC50 ratio` = format_range(EC50_ratio),
+      `Level of resistance` = summarise_resistance(EC50_ratio),
+      Reference = paste0("[@", unique(BIBTEXKEY), "]", collapse = "; "),#paste(unique(Reference), collapse = "; "),
+      .groups = "drop"
+    )
+  
+  level_order <- c(
+    "Unknown",
+    "Susceptible",
+    "Low",
+    "Medium",
+    "High"
+  )
+
+  highest_level <- function(x) {
+
+    if (is.na(x) || x == "")
+      return("Unknown")
+
+    # Split ranges like "Low–Medium"
+    levs <- unlist(strsplit(x, "–"))
+
+    levs <- factor(levs,
+                  levels = level_order,
+                  ordered = TRUE)
+
+    as.character(max(levs))
+  }
+
+  summary_table <- summary_df
+
+  summary_table$Drug <- factor(
+    summary_table$Drug,
+    levels = c(
+      "Ganciclovir",
+      "Foscarnet",
+      "Cidofovir",
+      "Maribavir",
+      "Letermovir"
+    )
+  )
+
+  summary_table <-
+    summary_table |>
+    mutate(Resistance = vapply(`Level of resistance`, highest_level, character(1))) |>
+    select(Gene, Mutation, Drug, Resistance) |>
+    distinct() |>
+    pivot_wider(
+      names_from = Drug,
+      values_from = Resistance,
+      names_expand = TRUE,
+      values_fill = "Unknown"
+    ) |>
+    select(
+      Gene,
+      Mutation,
+      Ganciclovir,
+      Foscarnet,
+      Cidofovir,
+      Maribavir,
+      Letermovir
+    )
+
+  legend <- HTML(
+    paste(
+      "<span style='display:inline-block;width:12px;height:12px;background:#A9A9A9;border:1px solid black;'></span> Unknown (not found in database)",
+      "<span style='display:inline-block;width:12px;height:12px;background:#00FF00;border:1px solid black;'></span> Susceptible (< 2 EC50 ratio)",
+      "&nbsp;&nbsp;",
+      "<span style='display:inline-block;width:12px;height:12px;background:#FFFF00;border:1px solid black;'></span> Low (>= 2 & < 5 EC50 ratio)",
+      "&nbsp;&nbsp;",
+      "<span style='display:inline-block;width:12px;height:12px;background:#FFA500;border:1px solid black;'></span> Medium (>= 5 & < 15 EC50 ratio)",
+      "&nbsp;&nbsp;",
+      "<span style='display:inline-block;width:12px;height:12px;background:#FF0000;border:1px solid black;'></span> High (>= 15 EC50 ratio)"
+      )
+    )
 
   tbl <- gt(summary_table)
   tbl <- tbl |>
     tab_style(
-      style = cell_fill(color = "grey"),
+      style = cell_fill(color = "#A9A9A9"),
       locations = cells_body(
         columns = Ganciclovir,
         rows = Ganciclovir == "Unknown"
@@ -189,7 +399,7 @@ if(nrow(resistance_df)==0){
       )
     ) |>
     tab_style(
-      style = cell_fill(color = "grey"),
+      style = cell_fill(color = "#A9A9A9"),
       locations = cells_body(
         columns = Foscarnet,
         rows = Foscarnet == "Unknown"
@@ -224,7 +434,7 @@ if(nrow(resistance_df)==0){
       )
     ) |>
     tab_style(
-      style = cell_fill(color = "grey"),
+      style = cell_fill(color = "#A9A9A9"),
       locations = cells_body(
         columns = Cidofovir,
         rows = Cidofovir == "Unknown"
@@ -259,7 +469,7 @@ if(nrow(resistance_df)==0){
       )
     ) |>
     tab_style(
-      style = cell_fill(color = "grey"),
+      style = cell_fill(color = "#A9A9A9"),
       locations = cells_body(
         columns = Maribavir,
         rows = Maribavir == "Unknown"
@@ -294,7 +504,7 @@ if(nrow(resistance_df)==0){
       )
     ) |>
     tab_style(
-      style = cell_fill(color = "grey"),
+      style = cell_fill(color = "#A9A9A9"),
       locations = cells_body(
         columns = Letermovir,
         rows = Letermovir == "Unknown"
@@ -327,16 +537,13 @@ if(nrow(resistance_df)==0){
         columns = Letermovir,
         rows = Letermovir == "High"
       )
-    )
+    ) |> tab_source_note(source_note = legend)
 
 
   tbl
 }
 
-
 ```
-
-
 
 
 *This report has been generated using the CMVResistanceFinder Nextflow pipeline found here: [viRusneRd5/CMVResistanceFinder](https://github.com/viRusneRd5/CMVResistanceFinder)*

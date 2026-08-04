@@ -2,7 +2,7 @@ process QUARTO_RUN_REPORT {
     tag "quarto"
     label "process_medium"
 
-    conda "conda-forge::quarto==1.9.38 conda-forge::r-quarto conda-forge::r-rmarkdown=2.29 r-tidyverse bioconda::bioconductor-genomicalignments r-gt r-knitr r-rmarkdown conda-forge::r-plotly conda-forge::r-dt"
+    conda "${moduleDir}/environment.yml"
 
     input:
     path(coverage) //coverage.tsv files

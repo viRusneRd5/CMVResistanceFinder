@@ -150,4 +150,4 @@
 
 - [Bioconductor](http://www.nature.com/nmeth/journal/v12/n2/full/nmeth.3252.html)
 
-> W. Huber and V. J. Carey and R. Gentleman and S. Anders and M. Carlson and B. S. Carvalho and H. C. Bravo and S. Davis and L. Gatto and T. Girke and R. Gottardo and F. Hahne and K. D. Hansen and R. A. Irizarry and M. Lawrence and M. I. Love and J. MacDonald and V. Obenchain and A. K. {Ole's} and H. {Pag`es} and A. Reyes and P. Shannon and G. K. Smyth and D. Tenenbaum and L. Waldron and M. Morgan. {O}rchestrating high-throughput genomic analysis with {B}ioconductor. Nature Methods 2015.
+  > W. Huber and V. J. Carey and R. Gentleman and S. Anders and M. Carlson and B. S. Carvalho and H. C. Bravo and S. Davis and L. Gatto and T. Girke and R. Gottardo and F. Hahne and K. D. Hansen and R. A. Irizarry and M. Lawrence and M. I. Love and J. MacDonald and V. Obenchain and A. K. {Ole's} and H. {Pag`es} and A. Reyes and P. Shannon and G. K. Smyth and D. Tenenbaum and L. Waldron and M. Morgan. {O}rchestrating high-throughput genomic analysis with {B}ioconductor. Nature Methods 2015.

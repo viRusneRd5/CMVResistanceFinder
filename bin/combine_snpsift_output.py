@@ -51,6 +51,58 @@ min_freq = args.min_freq
 
 dfs = []
 
+def calculate_freebayes_af(ao, ro):
+    """
+    Calculate AF values for FreeBayes records.
+
+    Handles:
+      AO=12, RO=80          -> 0.1304
+      AO=12,8, RO=80,80     -> 0.1304,0.0909
+    """
+
+    if pd.isna(ao) or pd.isna(ro):
+        return None
+
+    ao_vals = str(ao).split(",")
+    ro_vals = str(ro).split(",")
+
+    # If RO contains a single value, use it for all ALT alleles
+    if len(ro_vals) == 1 and len(ao_vals) > 1:
+        ro_vals = ro_vals * len(ao_vals)
+
+    af_vals = []
+
+    for ao_v, ro_v in zip(ao_vals, ro_vals):
+        try:
+            ao_num = float(ao_v)
+            ro_num = float(ro_v)
+
+            denom = ao_num + ro_num
+
+            if denom == 0:
+                af_vals.append("0")
+            else:
+                af_vals.append(f"{ao_num / denom:.6f}")
+
+        except (ValueError, TypeError):
+            af_vals.append("")
+
+    return ",".join(af_vals)
+
+def max_af_value(af):
+    if pd.isna(af):
+        return 0.0
+
+    try:
+        values = [
+            float(x)
+            for x in str(af).split(",")
+            if x != ""
+        ]
+        return max(values) if values else 0.0
+    except ValueError:
+        return 0.0
+
 for file in input_files:
 
     df = pd.read_csv(file, sep="\t", dtype=str)
@@ -101,57 +153,19 @@ freebayes_mask = (
     combined["variant_caller"].str.lower() == "freebayes"
 )
 
-# Only run if the columns exist
-if "AO[*]" in combined.columns and "RO[*]" in combined.columns:
-
-    combined["AO[*]"] = pd.to_numeric(
-        combined["AO[*]"],
-        errors="coerce"
-    )
-
-    combined["RO[*]"] = pd.to_numeric(
-        combined["RO[*]"],
-        errors="coerce"
-    )
-
-    combined.loc[freebayes_mask, "AF[*]"] = (
-        combined.loc[freebayes_mask, "AO[*]"]
-        /
-        (
-            combined.loc[freebayes_mask, "AO[*]"]
-            + combined.loc[freebayes_mask, "RO[*]"]
-        )
-    )
-
 # ----------------------------------------------------
 # Recalculate AF for FreeBayes
 # AF = AO / (AO + RO)
 # ----------------------------------------------------
 
-combined["AF[*]"] = pd.to_numeric(
-    combined["AF[*]"],
-    errors="coerce"
-)
-
-combined["AO[*]"] = pd.to_numeric(
-    combined["AO[*]"],
-    errors="coerce"
-)
-
-combined["RO[*]"] = pd.to_numeric(
-    combined["RO[*]"],
-    errors="coerce"
-)
-
-freebayes_mask = (
-    combined["variant_caller"].str.lower() == "freebayes"
-)
-
 combined.loc[freebayes_mask, "AF[*]"] = (
-    combined.loc[freebayes_mask, "AO[*]"] /
-    (
-        combined.loc[freebayes_mask, "AO[*]"] +
-        combined.loc[freebayes_mask, "RO[*]"]
+    combined.loc[freebayes_mask]
+    .apply(
+        lambda row: calculate_freebayes_af(
+            row["AO[*]"],
+            row["RO[*]"]
+        ),
+        axis=1
     )
 )
 
@@ -162,9 +176,10 @@ combined.loc[freebayes_mask, "AF[*]"] = (
 combined = combined[
     ~(
         (combined["variant_caller"].str.lower() == "lofreq") &
-        (combined["AF[*]"] < min_freq)
+        (combined["AF[*]"].apply(max_af_value) < min_freq)
     )
 ]
+
 
 # ------------------------------------------------------------------
 # Define columns that uniquely identify a variant
