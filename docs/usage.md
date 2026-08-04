@@ -55,10 +55,18 @@ An [example samplesheet](../assets/samplesheet.csv) has been provided with the p
 The typical command for running the pipeline is as follows:
 
 ```bash
-nextflow run viRusneRd5/cmvresistancefinder --input ./samplesheet.csv --outdir ./results --genome GRCh37 -profile docker
+nextflow run viRusneRd5/cmvresistancefinder \
+   -profile singularity,conda \
+   --input samplesheet.csv \
+   --outdir <OUTDIR> \
+   --protocol amplicon \
+   --hostile_reference_path <path/to/hostile_reference> \
+   --kraken2_db <path/to/kraken2_virus_db \
+   --report_author <your_name/institute> \
+   --run_name <run_name>
 ```
 
-This will launch the pipeline with the `docker` configuration profile. See below for more information about profiles.
+This will launch the pipeline with the `singularity,conda` configuration profile, which will run singularity or if not available then conda (working to fix so that it can run on either). See below for more information about profiles.
 
 Note that the pipeline will create the following files in your working directory:
 
@@ -79,7 +87,7 @@ Pipeline settings can be provided in a `yaml` or `json` file via `-params-file <
 The above pipeline run specified with a params file in yaml format:
 
 ```bash
-nextflow run viRusneRd5/cmvresistancefinder -profile docker -params-file params.yaml
+nextflow run viRusneRd5/cmvresistancefinder -profile singularity,conda -params-file params.yaml
 ```
 
 with:
@@ -87,10 +95,13 @@ with:
 ```yaml title="params.yaml"
 input: './samplesheet.csv'
 outdir: './results/'
-genome: 'GRCh37'
+protocol: 'amplicon'
+hostile_reference_path: '<path/to/hostile_reference>'
+kraken2_db: '<path/to/kraken2_virus_db'
+run_name: '<run_name>'
+report_author: '<report_author/institution>'
 <...>
 ```
-
 You can also generate such `YAML`/`JSON` files via [nf-core/launch](https://nf-co.re/launch).
 
 ### Updating the pipeline
@@ -166,6 +177,90 @@ You can also supply a run name to resume a specific run: `-resume [run-name]`. U
 Specify the path to a specific config file (this is a core Nextflow command). See the [nf-core website documentation](https://nf-co.re/usage/configuration) for more information.
 
 ## Custom configuration
+
+### `--seq_type`
+
+Specify if the samples in the run are either `'long-read'` (ONT) or `'short-read'` (Illumina).
+
+### `--trimmer`
+
+Specify adaptor/quality trimming tool to be used. One of `'trimmomatic'` or `'fastp'`. Fastp is the default as it can auto-detect the adaptors to trim. If using trimmomatic, you will need to provide `--adapter_file <path/to/adapter.fasta>`. Note that if running on long-read sequences, this will default to fastplong for adaptor/quality trimming.
+
+### `--skip_host_removal`
+
+This allows you to skip performing host read removal using hostile. I would only recommend this if your pipeline already performs host-removal prior to running this pipeline, or if you are running public sequencing data where host-removal has presumably already occurred, but it doesn't hurt to leave this on.
+
+### `--hostile_index`
+
+The name of the hostile reference index used, e.g. `'human-t2t-hla'`.
+
+### `--hostile_reference_path`
+
+If you want to perform host-removal, you will need to download the hostile reference and index using bowtie2 build, as per below:
+
+```bash
+wget https://objectstorage.uk-london-1.oraclecloud.com/n/lrbvkel2wjot/b/human-genome-bucket/o/human-t2t-hla.fa.gz
+
+bowtie2-build /path/to/hostile_reference/human-t2t-hla.fa.gz /path/to/hostile_reference/hostile_bowtie_index
+```
+Then provide the `--hostile_reference_path /path/to/hostile_reference/hostile_bowtie_index` when running your pipeline. Ensure that the `--hostile_index` matches to the one you downloaded.
+
+### `--kraken2_db`
+
+The path to your Kraken2 database. If you wish to run Kraken2 to perform taxonomic classification on your reads prior to alignment to the reference, you will need to download the Kraken2 viral database. You can you this by:
+
+```bash
+wget https://genome-idx.s3.amazonaws.com/kraken/k2_viral_20260226.tar.gz
+tar -xzvf /path/to/kraken_database/k2_viral_20260226.tar.gz
+```
+If you do not wish to perform kraken2 classification, add `--skip_kraken2 true` in place of `--kraken2_db </path/to/kraken2_virus_db>` below.
+
+You can also use the Kraken2 standard database (up to date datases [found here](https://benlangmead.github.io/aws-indexes/k2)), but this database is larger and may take longer to run. Note that the pluspf database will not identify viruses, so should not be used here.
+
+### `--kraken2_output`
+
+Boolean to specify whether you want kraken2 to save the output fastq and reads assignment file. Default is `false`.
+
+### `--skip_kraken2`
+
+Boolean to skip Kraken2 read classification (default is `false`). If you do skip, it might save a little bit of time and doesn't effect the downstream of which reads are aligned to the reference sequence, will only change the multiqc output.
+
+### `--variant_caller`
+
+Currently, this must be set to `'all'` so that the pipeline will perform variant calling using freebayes, ivar and lofreq. If you change this setting to only run a single variant caller, this will break the compilation of variants later in the pipeline. Working to fix this.
+<!-- TODO variant caller: Once this is fixed, I will need to change this. -->
+
+### `--aligner`
+
+You can choose between three aligning tools - bwa-mem3, bowtie2 and minimap2. The default is minimap2 as I found this gave me the best coverage, but you may have one that you prefer.
+
+### `--min_depth`
+
+This sets the minimum read depth at the codon location required for calling a variant (default is `40`). This parameter sets the minimum depth for all three variant callers.
+
+### `--min_freq`
+
+This sets the minimum variant frequency required to call a variant (default is `0.05`, i.e. 5%). This parameter sets the minimum frequency flag for ivar and freebayes, while lofreq is filtered later in the pipeline when merging the data from all variant callers.
+
+### `--skip_sample_report`
+
+Boolean to skip the generation of the individual sample reports. Default is `false`.
+
+## Extra custom configuration (for advanced users)
+
+This pipeline includes the merlin CMV reference genome for aligning your reads to and calling variants. If you wish to use your own reference sequence, the pipeline can accommodate this, however you will need to prepare a few files. More info on this can be found in the [FAQ](faq.md).
+
+### `--cmv_ref_fasta`
+
+BYO reference sequence fasta. Read [FAQ](faq.md) for more detail.
+
+### `--cmv_ref_gff`
+
+BYO reference sequence gff. Read [FAQ](faq.md) for more detail.
+
+### `--cmv_ref_name`
+
+BYO reference sequence name (same has fasta file header). Read [FAQ](faq.md) for more detail.
 
 ### Resource requests
 

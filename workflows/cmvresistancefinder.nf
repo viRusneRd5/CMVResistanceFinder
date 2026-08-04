@@ -19,6 +19,7 @@ include { SAMTOOLS_STATS                             } from '../modules/nf-core/
 //Trimming
 include { TRIMMOMATIC                                } from '../modules/nf-core/trimmomatic/main'
 include { FASTP                                      } from '../modules/nf-core/fastp/main'
+include { FASTPLONG                                  } from '../modules/nf-core/fastplong/main'
 
 //Align to reference
 include { BOWTIE2_ALIGN                              } from '../modules/nf-core/bowtie2/align/main'
@@ -113,7 +114,7 @@ workflow CMVRESISTANCEFINDER {
     //
     // MODULE: Run fastp
     //
-    if (params.trimmer == "fastp") {
+    if (params.trimmer == "fastp" && params.seq_type == "short-read") {
         FASTP (
             ch_raw_fastqs.map { meta, reads -> tuple(meta, reads, []) },
             false,
@@ -126,11 +127,21 @@ workflow CMVRESISTANCEFINDER {
     //
     // MODULE: Run trimmomatic
     //
-    if (params.trimmer == "trimmomatic") {
+    if (params.trimmer == "trimmomatic" && params.seq_type == "short-read") {
         TRIMMOMATIC (
                 ch_raw_fastqs
             )
         ch_trimmed_fastq = ch_trimmed_fastq.mix(TRIMMOMATIC.out.trimmed_reads)
+    }
+
+    if (params.seq_type == "long-read") {
+        FASTPLONG (
+            ch_raw_fastqs,
+            [], //adapter file not needed as can auto detect
+            false, //discard trimmed passed and only save reports
+            false //save trimmed failed
+        )
+        ch_trimmed_fastq = ch_trimmed_fastq.mix(FASTPLONG.out.reads)
     }
 
     //
@@ -182,7 +193,7 @@ workflow CMVRESISTANCEFINDER {
     //
     // MODULE: Alignment with Bowtie2
     //
-    if (params.aligner == 'bowtie2') {
+    if (params.aligner == 'bowtie2' && params.seq_type == "short-read") {
         BOWTIE2_ALIGN (
             ch_trimmed_fastq,
             ch_cmv_aligner_index,
@@ -211,7 +222,7 @@ workflow CMVRESISTANCEFINDER {
     //
     // MODULE: Alignment with bwa-mem3
     //
-    if (params.aligner == 'bwa-mem3') {
+    if (params.aligner == 'bwa-mem3' && params.seq_type == "short-read") {
         BWAMEM3_MEM (
             ch_trimmed_fastq,
             ch_cmv_aligner_index,

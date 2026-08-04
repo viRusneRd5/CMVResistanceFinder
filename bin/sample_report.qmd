@@ -36,9 +36,10 @@ params:
   ul51_pos: ""
   ul54_pos: ""
   ul56_pos: ""
-  ul89_a_pos: ""
+  ul89_b_pos: ""
   ul97_pos: ""
 ---
+
 
 
 ```{css}
@@ -73,7 +74,7 @@ ul27_pos <- params$ul27_pos
 ul51_pos <- params$ul51_pos
 ul54_pos <- params$ul54_pos
 ul56_pos <- params$ul56_pos
-ul89_pos <- params$ul89_a_pos
+ul89_pos <- params$ul89_b_pos
 ul97_pos <- params$ul97_pos
 ```
 
@@ -82,19 +83,233 @@ ul97_pos <- params$ul97_pos
 
 #Detected Mutations - Predicted Resistance
 resis_df <- read_tsv(resis_output)
+
+```
+
+```{r key_muts_analysis}
+# Key Mutations Characterised in the Literature
+if(nrow(resis_df)!=0){
+  colnames(resis_df) <- gsub("ganciclovir", "Ganciclovir", colnames(resis_df))
+  colnames(resis_df) <- gsub("foscarnet", "Foscarnet", colnames(resis_df))
+  colnames(resis_df) <- gsub("cidofovir", "Cidofovir", colnames(resis_df))
+  colnames(resis_df) <- gsub("maribavir", "Maribavir", colnames(resis_df))
+  colnames(resis_df) <- gsub("letermovir", "Letermovir", colnames(resis_df))
+  condensed_df <- resis_df |> 
+    mutate(
+      across(
+        ends_with("EC50_ratio"),
+        as.character
+      )
+    ) |> 
+    pivot_longer(
+      cols = matches("(_EC50_ratio|_resistance)$"),
+      names_to = c("Drug", ".value"),
+      names_pattern = "(.*)_(EC50_ratio|resistance)"
+    ) |>
+    filter(!(is.na(EC50_ratio) & is.na(resistance)))
+
+  parse_ec50 <- function(x) {
+
+    if (is.null(x) || length(x) == 0)
+      return(numeric())
+
+    x <- trimws(as.character(x))
+    x <- x[!is.na(x)]
+
+    out <- numeric()
+
+    for (v in x) {
+
+      v_lower <- tolower(v)
+
+      if (v_lower == "susceptible")
+        next
+
+      if (v_lower %in% c("resistance", "resistant"))
+        next
+
+      # Remove >, >=, <, <=
+      v <- gsub("^[<>]=?", "", v)
+
+      # Split values like 3.6/3.4 or 5.6\4.7
+      vals <- unlist(strsplit(v, "[/\\\\]"))
+
+      nums <- suppressWarnings(as.numeric(vals))
+
+      out <- c(out, nums[!is.na(nums)])
+    }
+
+    out
+  }
+
+  format_range <- function(x, digits = 1) {
+
+    # If every non-NA value is "Susceptible"
+    txt <- trimws(as.character(x))
+    txt <- txt[!is.na(txt)]
+
+    if (length(txt) > 0 &&
+        all(tolower(txt) == "susceptible")) {
+      return("Susceptible")
+    }
+
+    nums <- sort(parse_ec50(x))
+
+    if (length(nums) == 0)
+      return(NA_character_)
+
+    if (min(nums) == max(nums))
+      return(format(round(min(nums), digits), trim = TRUE))
+
+    sprintf(
+      "%s–%s",
+      format(round(min(nums), digits), trim = TRUE),
+      format(round(max(nums), digits), trim = TRUE)
+    )
+  }
+
+  levels <- c("Susceptible", "Low", "Medium", "High")
+
+  format_level <- function(x){
+
+    x <- factor(na.omit(x), levels = levels, ordered = TRUE)
+
+    if(length(x) == 0)
+      return(NA_character_)
+
+    lo <- min(x)
+    hi <- max(x)
+
+    if(lo == hi)
+      as.character(lo)
+    else
+      paste0(lo, "–", hi)
+  }
+
+  get_resistance_level <- function(x) {
+
+    case_when(
+      is.na(x) ~ "Unknown",
+      x < 2 ~ "Susceptible",
+      x < 5 ~ "Low",
+      x < 15 ~ "Medium",
+      TRUE ~ "High"
+    )
+  }
+
+  summarise_resistance <- function(x) {
+
+    txt <- trimws(tolower(as.character(x)))
+    txt <- txt[!is.na(txt)]
+
+    if (length(txt) > 0) {
+
+      if (all(txt == "susceptible"))
+        return("Susceptible")
+
+      if (all(txt %in% c("resistance", "resistant")))
+        return("Unknown")
+    }
+
+    nums <- sort(parse_ec50(x))
+
+    # No numeric values
+    if (length(nums) == 0)
+      return("Unknown")
+
+    levs <- factor(
+      get_resistance_level(nums),
+      levels = c("Unknown", "Susceptible", "Low", "Medium", "High"),
+      ordered = TRUE
+    )
+
+    lo <- min(levs)
+    hi <- max(levs)
+
+    if (lo == hi)
+      as.character(lo)
+    else
+      paste0(lo, "–", hi)
+  }
+
+  summary_df <- condensed_df |>
+    group_by(Gene, Mutation, Drug) |>
+    summarise(
+      `EC50 ratio` = format_range(EC50_ratio),
+      `Level of resistance` = summarise_resistance(EC50_ratio),
+      Reference = paste0("[@", unique(BIBTEXKEY), "]", collapse = "; "),#paste(unique(Reference), collapse = "; "),
+      .groups = "drop"
+    )
+}
+
+
+
+```
+
+
+```{r}
 #Are there any mutations?
 if(nrow(resis_df)!=0){
-  summary_table <- resis_df |> mutate(across(ends_with("EC50_ratio"), as.numeric)) |> pivot_longer(cols = ends_with("EC50_ratio"), names_to="Drug", values_to="EC50") |> mutate(Drug = str_remove(Drug,"_EC50_ratio"))
+  level_order <- c(
+    "Unknown",
+    "Susceptible",
+    "Low",
+    "Medium",
+    "High"
+  )
 
-  summary_table <- summary_table |> group_by(Gene, Mutation, Drug) |> summarise(Mean_EC50 = mean(EC50, na.rm=TRUE), Publications = n(), .groups="drop")
+  highest_level <- function(x) {
 
-  summary_table <- summary_table |> mutate(Resistance = case_when(Mean_EC50 <2 ~ "Susceptible", Mean_EC50 <5 ~ "Low", Mean_EC50 <15 ~ "Medium", is.na(Mean_EC50) ~ "Unknown", TRUE ~ "High"))
+    if (is.na(x) || x == "")
+      return("Unknown")
 
-  summary_table <- summary_table |> select(-Mean_EC50, -Publications) |> pivot_wider(names_from = "Drug", values_from = "Resistance") |> select(Gene, Mutation, Ganciclovir, Foscarnet, Cidofovir, Maribavir, Letermovir)
+    # Split ranges like "Low–Medium"
+    levs <- unlist(strsplit(x, "–"))
+
+    levs <- factor(levs,
+                  levels = level_order,
+                  ordered = TRUE)
+
+    as.character(max(levs))
+  }
+
+  summary_table <- summary_df
+
+  summary_table$Drug <- factor(
+    summary_table$Drug,
+    levels = c(
+      "Ganciclovir",
+      "Foscarnet",
+      "Cidofovir",
+      "Maribavir",
+      "Letermovir"
+    )
+  )
+
+  summary_table <-
+    summary_table |>
+    mutate(Resistance = vapply(`Level of resistance`, highest_level, character(1))) |>
+    select(Gene, Mutation, Drug, Resistance) |>
+    distinct() |>
+    pivot_wider(
+      names_from = Drug,
+      values_from = Resistance,
+      names_expand = TRUE,
+      values_fill = "Unknown"
+    ) |>
+    select(
+      Gene,
+      Mutation,
+      Ganciclovir,
+      Foscarnet,
+      Cidofovir,
+      Maribavir,
+      Letermovir
+    )
 
   legend <- HTML(
     paste(
-      "<span style='display:inline-block;width:12px;height:12px;background;#A9A9A9;border:1px solid black;'></span> Unknown (not found in database)",
+      "<span style='display:inline-block;width:12px;height:12px;background:#A9A9A9;border:1px solid black;'></span> Unknown (not found in database)",
       "<span style='display:inline-block;width:12px;height:12px;background:#00FF00;border:1px solid black;'></span> Susceptible (< 2 EC50 ratio)",
       "&nbsp;&nbsp;",
       "<span style='display:inline-block;width:12px;height:12px;background:#FFFF00;border:1px solid black;'></span> Low (>= 2 & < 5 EC50 ratio)",
@@ -282,116 +497,11 @@ if(nrow(resis_df)!=0){
         rows = Letermovir == "High"
       )
     ) |> tab_source_note(source_note = legend)
-  #tab_footnote(
-  #  footnote = "GCV = ganciclovir, FOS = foscarnet, CDV = cidofovir, MBV = maribavir, LET = letermovir"
-  #) |>
-  #tab_footnote(
-  #  footnote = "Unknown = not characterised in the literature, Susceptible = <2 EC50 ratio, Low = >= 2 & < 5 EC50 ratio, Medium = >= 5 & < 15 EC50 ratio, High = >= 15 EC50 ratio."
-  #) |>
   
 }
 
 ```
 
-```{r key_muts_analysis}
-# Key Mutations Characterised in the Literature
-if(nrow(resis_df)!=0){
-  colnames(resis_df) <- gsub("ganciclovir", "Ganciclovir", colnames(resis_df))
-  colnames(resis_df) <- gsub("foscarnet", "Foscarnet", colnames(resis_df))
-  colnames(resis_df) <- gsub("cidofovir", "Cidofovir", colnames(resis_df))
-  colnames(resis_df) <- gsub("maribavir", "Maribavir", colnames(resis_df))
-  colnames(resis_df) <- gsub("letermovir", "Letermovir", colnames(resis_df))
-  condensed_df <- resis_df |> 
-    mutate(
-      across(
-        ends_with("EC50_ratio"),
-        as.character
-      )
-    ) |> 
-    pivot_longer(
-      cols = matches("(_EC50_ratio|_resistance)$"),
-      names_to = c("Drug", ".value"),
-      names_pattern = "(.*)_(EC50_ratio|resistance)"
-    ) |>
-    filter(!(is.na(EC50_ratio) & is.na(resistance)))
-
-  format_range <- function(x, digits = 1) {
-
-    x <- sort(na.omit(as.numeric(x)))
-
-    if (length(x) == 0)
-      return(NA_character_)
-
-    if (min(x) == max(x))
-      return(format(round(min(x), digits), trim = TRUE))
-
-    sprintf(
-      "%s–%s",
-      format(round(min(x), digits), trim = TRUE),
-      format(round(max(x), digits), trim = TRUE)
-    )
-  }
-  levels <- c("Susceptible", "Low", "Medium", "High")
-
-  format_level <- function(x){
-
-    x <- factor(na.omit(x), levels = levels, ordered = TRUE)
-
-    if(length(x) == 0)
-      return(NA_character_)
-
-    lo <- min(x)
-    hi <- max(x)
-
-    if(lo == hi)
-      as.character(lo)
-    else
-      paste0(lo, "–", hi)
-  }
-  get_resistance_level <- function(x) {
-    case_when(
-      x < 2 ~ "Susceptible",
-      x >= 2 & x < 5 ~ "Low",
-      x >= 5 & x < 15 ~ "Medium",
-      x >= 15 ~ "High"
-    )
-  }
-  summarise_resistance <- function(x) {
-    
-    x <- sort(na.omit(x))
-    
-    if(length(x) == 0)
-      return(NA_character_)
-    
-    levels <- get_resistance_level(x)
-    
-    levels <- factor(
-      levels,
-      levels = c("Susceptible", "Low", "Medium", "High"),
-      ordered = TRUE
-    )
-    
-    if(min(levels) == max(levels)) {
-      as.character(min(levels))
-    } else {
-      paste0(min(levels), "–", max(levels))
-    }
-  }
-
-  summary_df <- condensed_df |>
-    group_by(Gene, Mutation, Drug) |>
-    summarise(
-      `EC50 ratio` = format_range(EC50_ratio),
-      `Level of resistance` = summarise_resistance(EC50_ratio),
-      Reference = paste0("[@", unique(BIBTEXKEY), "]", collapse = "; "),#paste(unique(Reference), collapse = "; "),
-      .groups = "drop"
-    )
-
-}
-
-
-
-```
 
 ```{r unknown_sig_analysis}
 # Mutations of Unknown Significance
@@ -548,7 +658,7 @@ if(protocol == "wgs"){
 
   depth_df <- depth_df |> rowwise() |> mutate(log_depth = ifelse(log_depth == -Inf, 0, log_depth))
   gene_df <- data.frame(
-    gene = c("UL27", "UL51", "UL54", "UL56", "UL89_A", "UL97"),
+    gene = c("UL27", "UL51", "UL54", "UL56", "UL89_B", "UL97"),
     start = c(as.numeric(unlist(str_split(ul27_pos, "-"))[1]), as.numeric(unlist(str_split(ul51_pos, "-"))[1]), as.numeric(unlist(str_split(ul54_pos, "-"))[1]), as.numeric(unlist(str_split(ul56_pos, "-"))[1]), as.numeric(unlist(str_split(ul89_pos, "-"))[1]), as.numeric(unlist(str_split(ul97_pos, "-"))[1])),
     end   = c(as.numeric(unlist(str_split(ul27_pos, "-"))[2]), as.numeric(unlist(str_split(ul51_pos, "-"))[2]), as.numeric(unlist(str_split(ul54_pos, "-"))[2]), as.numeric(unlist(str_split(ul56_pos, "-"))[2]), as.numeric(unlist(str_split(ul89_pos, "-"))[2]), as.numeric(unlist(str_split(ul97_pos, "-"))[2]))
   )
@@ -845,6 +955,9 @@ if(nrow(insufficient) > 0){
 `r if(protocol == "wgs") "# Whole Genome Sequencing Coverage Plot" else ""`
 
 ```{r}
+#| fig-width: 16
+#| fig-height: 5
+
 if(protocol == "wgs"){
   wgs_plot
 }

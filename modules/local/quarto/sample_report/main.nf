@@ -25,7 +25,7 @@ process QUARTO_SAMPLE_REPORT {
     def ul51_pos = gene_positions['ul51']
     def ul54_pos = gene_positions['ul54']
     def ul56_pos = gene_positions['ul56']
-    def ul89_a_pos = gene_positions['ul89_a']
+    def ul89_b_pos = gene_positions['ul89_b']
     def ul97_pos = gene_positions['ul97']
 
     """
@@ -49,7 +49,7 @@ process QUARTO_SAMPLE_REPORT {
         -P ul51_pos:${ul51_pos} \
         -P ul54_pos:${ul54_pos} \
         -P ul56_pos:${ul56_pos} \
-        -P ul89_a_pos:${ul89_a_pos} \
+        -P ul89_b_pos:${ul89_b_pos} \
         -P ul97_pos:${ul97_pos} \
         --output ${meta.id}.html
     """

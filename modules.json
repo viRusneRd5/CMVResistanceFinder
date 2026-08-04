@@ -89,6 +89,13 @@
                             "fastq_trim_fastp_fastqc"
                         ]
                     },
+                    "fastplong": {
+                        "branch": "master",
+                        "git_sha": "6d46786420b4d7bc88eba026eb389c0c5535d120",
+                        "installed_by": [
+                            "modules"
+                        ]
+                    },
                     "fastqc": {
                         "branch": "master",
                         "git_sha": "6d46786420b4d7bc88eba026eb389c0c5535d120",
@@ -177,20 +184,6 @@
                     "samtools/stats": {
                         "branch": "master",
                         "git_sha": "9339809fcb90af8a8b7051e6cd914894d5c52002",
-                        "installed_by": [
-                            "modules"
-                        ]
-                    },
-                    "snpeff/snpeff": {
-                        "branch": "master",
-                        "git_sha": "6d46786420b4d7bc88eba026eb389c0c5535d120",
-                        "installed_by": [
-                            "modules"
-                        ]
-                    },
-                    "snpsift/annotate": {
-                        "branch": "master",
-                        "git_sha": "84fca3ce48c31dc0944c7dcecb08858a097a51a9",
                         "installed_by": [
                             "modules"
                         ]

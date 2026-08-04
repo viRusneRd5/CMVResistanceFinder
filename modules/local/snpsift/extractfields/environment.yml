@@ -4,4 +4,4 @@ channels:
   - conda-forge
   - bioconda
 dependencies:
-  - bioconda::snpsift=4.3.1t
+  - bioconda::snpsift=5.4.0c
