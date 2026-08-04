@@ -92,6 +92,7 @@ viRusneRd5/cmvresistancefinder was originally written by Jocelyn Hume.
 We thank the following people for their extensive assistance in the development of this pipeline:
 
 Dr Emma Sweeney - the University of Queensland
+
 Dr Kym Lowry - the University of Queensland
 <!-- TODO nf-core: If applicable, make list of people who have also contributed -->
 
