@@ -41,6 +41,11 @@ You will need to provide the following:
       e.g. "NC_006273.2" for merlin or "X17403.1" for AD169
 4. bed file
       the locations of the six resistance genes as described above. Yes you need this even if using wgs protocol.
+      You don't have to build this by hand - `bin/create_resis_genes_bed.py` will generate it from your GFF file, as long as the genes are annotated with standard `gene=` attributes on their CDS features:
+      ```bash
+      python bin/create_resis_genes_bed.py <path/to/gff/file> --ref-name "<ref_name>"
+      ```
+      This writes `CMV_<ref_name>_resis_genes.bed` for you to pass to `--cmv_genes_bed`. It handles spliced genes (like UL89 in the Merlin annotation) automatically, splitting them into `_A`/`_B` entries, and will warn you if a gene is missing or looks unexpectedly split.
 
 ```bash
 nextflow run viRusneRd5/cmvresistancefinder \
