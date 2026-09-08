@@ -259,9 +259,30 @@ workflow CMVRESISTANCEFINDER {
 
 
     //
+    // Work out which variant caller(s) to run.
+    // --variant_caller accepts "all", or a comma-separated subset of ivar, freebayes, lofreq
+    // (e.g. "ivar,freebayes"). At least one valid caller must be selected.
+    //
+    def valid_callers = ['ivar', 'freebayes', 'lofreq']
+    def selected_callers = params.variant_caller == 'all'
+        ? valid_callers
+        : params.variant_caller.tokenize(',').collect { it.trim().toLowerCase() }
+
+    def unknown_callers = selected_callers - valid_callers
+    if (unknown_callers) {
+        error("Unknown --variant_caller value(s): ${unknown_callers.join(', ')}. " +
+              "Valid options are 'all', or a comma-separated list from: ${valid_callers.join(', ')}.")
+    }
+    if (!selected_callers) {
+        error("--variant_caller must select at least one caller ('all', or a comma-separated list from: ${valid_callers.join(', ')}).")
+    }
+
+    ch_snpsift_all = Channel.empty()
+
+    //
     // MODULE: Call variants with IVar, convert tsv to vcf, index, annotate with snpeff and extract with snpsift
     //
-    if (params.variant_caller == "all" || params.variant_caller == "ivar") {
+    if ('ivar' in selected_callers) {
         IVAR_VARIANTS (
             ch_sorted_bam,
             ch_fasta_fai,
@@ -292,13 +313,14 @@ workflow CMVRESISTANCEFINDER {
             SNPEFF_IVAR.out.vcf
         )
         ch_snpsift_ivar = SNPSIFT_IVAR.out.txt
+        ch_snpsift_all = ch_snpsift_all.mix(ch_snpsift_ivar)
     }
 
 
     //
     // MODULE: Call variants with Freebayes, index, annotate with snpeff and extract with snpsift
     //
-    if (params.variant_caller == "all" || params.variant_caller == "freebayes") {
+    if ('freebayes' in selected_callers) {
         ch_freebayes = ch_sorted_bam.join(ch_sort_bam_index)
         ch_freebayes = ch_freebayes.combine(ch_genes_bed)
             .map { meta, bam, bai, bed ->
@@ -333,12 +355,13 @@ workflow CMVRESISTANCEFINDER {
             SNPEFF_FREEBAYES.out.vcf
         )
         ch_snpsift_freebayes = SNPSIFT_FREEBAYES.out.txt
+        ch_snpsift_all = ch_snpsift_all.mix(ch_snpsift_freebayes)
     }
 
     //
     // MODULE: Call variants with Lofreq, index, annotate with snpeff and extract with snpsift
     //
-    if (params.variant_caller == "all" || params.variant_caller == "lofreq") {
+    if ('lofreq' in selected_callers) {
         ch_lofreq = ch_sorted_bam.combine(ch_genes_bed)
             .map { meta, bam, bed ->
                 tuple(meta, bam, bed)
@@ -366,24 +389,24 @@ workflow CMVRESISTANCEFINDER {
             SNPEFF_LOFREQ.out.vcf
         )
         ch_snpsift_lofreq = SNPSIFT_LOFREQ.out.txt
+        ch_snpsift_all = ch_snpsift_all.mix(ch_snpsift_lofreq)
     }
 
     //
     // MODULE: Merge vcf files, format output files, extract matches in database
     //
-    if (params.variant_caller == "all") {
-        ch_merged_vcf = ch_snpsift_ivar.join(ch_snpsift_freebayes)
-        ch_merged_vcf = ch_merged_vcf.join(ch_snpsift_lofreq).map { meta, ivar, freebayes, lofreq ->
-            tuple(meta, [ivar, freebayes, lofreq])
-        }
-        MERGE_FORMAT (
-            ch_merged_vcf,
-            params.cmv_resis_db,
-            params.min_freq
-        )
-        ch_resistance = MERGE_FORMAT.out.resistance
-        ch_formatted = MERGE_FORMAT.out.formatted
-    }
+    // Groups the snpsift output of whichever caller(s) were selected by sample,
+    // so this runs the same way whether 1, 2, or all 3 callers were chosen.
+    //
+    ch_merged_vcf = ch_snpsift_all.groupTuple()
+
+    MERGE_FORMAT (
+        ch_merged_vcf,
+        params.cmv_resis_db,
+        params.min_freq
+    )
+    ch_resistance = MERGE_FORMAT.out.resistance
+    ch_formatted = MERGE_FORMAT.out.formatted
 
 
     //
