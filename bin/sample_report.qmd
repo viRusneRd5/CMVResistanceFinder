@@ -957,7 +957,12 @@ if(nrow(resis_df)==0){
 
 ```{r key_mut_table}
 if(nrow(resis_df)!=0){
-  summary_df |> kable()
+  summary_df |>
+    gt() |>
+    fmt_markdown(columns = Reference) |>
+    tab_options(
+      table.font.size = if (!knitr::is_html_output()) "8pt" else "100%"
+    )
 }
 
 ```
