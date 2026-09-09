@@ -1,98 +1,146 @@
 #!/usr/bin/env python3
 
-import pandas as pd
 import argparse
 import re
 
+import pandas as pd
 
-def mutation_match(query_mutation, database_mutation):
-    """
-    Returns True if:
-    - exact match
-    - query mutation is one component of a compound mutation
-    """
-    if query_mutation == database_mutation:
-        return True
+# Drug columns in the phenotype database, in report display order
+DRUGS = ["Ganciclovir", "Foscarnet", "Cidofovir", "Maribavir", "Letermovir"]
 
-    db_mutations = str(database_mutation).split("/")
-    return query_mutation in db_mutations
+# Columns copied straight from the variant (formatted.tsv) into the output
+VARIANT_COLS = [
+    "CHROM",
+    "POS",
+    "REF",
+    "ALT",
+    "DP[*]",
+    "AF[*]",
+    "detected_by",
+    "n_callers",
+]
+
+# Columns produced from the database for every variant/drug match
+DB_OUTPUT_COLS = [
+    "Gene",
+    "Mutation",
+    "Gene_Mutation",
+    "match_type",
+    "Drug",
+    "EC50_ratio",
+    "Level_of_resistance",
+    "References",
+]
+
+
+def extract_gene(raw_gene):
+    """Return the UL gene name (e.g. 'UL54') if present, else the raw value upper-cased."""
+    raw_gene = str(raw_gene)
+    match = re.search(r"(UL\d+)", raw_gene, re.IGNORECASE)
+    return match.group(1).upper() if match else raw_gene.upper()
+
+
+def split_components(gene_mutation):
+    """
+    Split a database 'Gene_Mutation' string into a set of (gene, mutation) tuples.
+
+    Single mutation:   'UL54_A594T'                  -> {('UL54', 'A594T')}
+    Compound mutation: 'UL54_A594T/UL54_V715M'       -> {('UL54', 'A594T'), ('UL54', 'V715M')}
+    Cross-gene:        'UL27_R233S/UL97_L337M'       -> {('UL27', 'R233S'), ('UL97', 'L337M')}
+    """
+    components = set()
+    for part in str(gene_mutation).split("/"):
+        part = part.strip()
+        if "_" not in part:
+            continue
+        gene, mutation = part.split("_", 1)
+        components.add((gene.upper(), mutation))
+    return components
+
+
+def variant_components(gene, aa_change):
+    """
+    (gene, aa_change) from a variant -> set of (gene, mutation) tuples.
+
+    A compound AA change such as 'V812L/T813S' is broken into its parts so that it
+    can match individual database entries.
+    """
+    components = set()
+    for part in str(aa_change).split("/"):
+        part = part.strip()
+        if part:
+            components.add((gene, part))
+    return components
+
+
+def round_ec50(value):
+    """Round a numeric EC50 ratio to 2 dp; pass non-numeric values (e.g. 'Susceptible') through."""
+    try:
+        return round(float(value), 2)
+    except (TypeError, ValueError):
+        text = str(value).strip()
+        return "" if text.upper() in ("", "NA", "NAN") else text
+
+
+def collect_references(record):
+    """Merge bibtex_list_meta and bibtex_list_geo into a unique, ', '-joined key list."""
+    keys = []
+    for column in ("bibtex_list_meta", "bibtex_list_geo"):
+        raw = record.get(column)
+        if raw is None or (isinstance(raw, float) and pd.isna(raw)):
+            continue
+        for key in str(raw).split(","):
+            key = key.strip()
+            if key and key.upper() != "NA" and key not in keys:
+                keys.append(key)
+    return ", ".join(keys)
 
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--variants", required=True, help="formatted.tsv file")
-    parser.add_argument("--database", required=True, help="database.csv file")
+    parser.add_argument("--database", required=True, help="phenotype database CSV")
     parser.add_argument("--output", required=True, help="output TSV")
     args = parser.parse_args()
 
     variants = pd.read_csv(args.variants, sep="\t")
-    database = pd.read_csv(args.database)
+    database = pd.read_csv(args.database, dtype=str)
 
-    database_cols = [
-        "Gene",
-        "Mutation",
-        "Ganciclovir_EC50_ratio",
-        "ganciclovir_resistance",
-        "Foscarnet_EC50_ratio",
-        "foscarnet_resistance",
-        "Cidofovir_EC50_ratio",
-        "cidofovir_resistance",
-        "Maribavir_EC50_ratio",
-        "maribavir_resistance",
-        "Letermovir_EC50_ratio",
-        "letermovir_resistance",
-        "TITLE",
-        "Authors",
-        "Published_Year",
-        "DOI",
-        "BIBTEXKEY"
+    # Pre-parse the database into (row, {(gene, mutation), ...}) once
+    db_records = [
+        (record, split_components(record["Gene_Mutation"]))
+        for _, record in database.iterrows()
     ]
 
-    variant_cols = [
-        "CHROM",
-        "POS",
-        "REF",
-        "ALT",
-        "DP[*]",
-        "AF[*]",
-        "detected_by",
-        "n_callers"
-    ]
-
-    available_variant_cols = [c for c in variant_cols if c in variants.columns]
+    available_variant_cols = [c for c in VARIANT_COLS if c in variants.columns]
+    output_cols = available_variant_cols + DB_OUTPUT_COLS
 
     matches = []
-
     for _, variant in variants.iterrows():
-        gene = str(variant["ANN[*].GENE"])
+        aa_change = str(variant.get("AA_change", "")).strip()
+        if aa_change in ("", ".", "nan"):
+            continue
 
-        # Extract UL gene name if present
-        match = re.search(r'(UL\d+)', gene, re.IGNORECASE)
-        if match:
-            gene = match.group(1).upper()
-        else:
-            gene = gene.upper()
+        gene = extract_gene(variant["ANN[*].GENE"])
+        query = variant_components(gene, aa_change)
 
-        gene_db = database[
-            database["Gene"].astype(str).str.upper() == gene
-        ]
-        mutation = variant["AA_change"]
+        for record, db_components in db_records:
+            if query.isdisjoint(db_components):
+                continue
 
-
-        for _, record in gene_db.iterrows():
-            if mutation_match(mutation, record["Mutation"]):
-                row = record[database_cols].to_dict()
-
-                for col in available_variant_cols:
-                    row[col] = variant[col]
-
-                matches.append(row)
-
-    output_cols = available_variant_cols + database_cols
+            row = {col: variant[col] for col in available_variant_cols}
+            row["Gene"] = variant["ANN[*].GENE"]
+            row["Mutation"] = aa_change
+            row["Gene_Mutation"] = record["Gene_Mutation"]
+            row["match_type"] = "exact" if len(db_components) == 1 else "compound"
+            row["Drug"] = record["Drug"]
+            row["EC50_ratio"] = round_ec50(record["Overall_EC50_Ratio"])
+            row["Level_of_resistance"] = record["level_of_resistance"]
+            row["References"] = collect_references(record)
+            matches.append(row)
 
     if matches:
-        result = pd.DataFrame(matches)
-        result = result.drop_duplicates()
+        result = pd.DataFrame(matches)[output_cols].drop_duplicates()
     else:
         result = pd.DataFrame(columns=output_cols)
 

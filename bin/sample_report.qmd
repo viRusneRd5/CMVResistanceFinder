@@ -88,88 +88,18 @@ resis_df <- read_tsv(resis_output)
 
 ```{r key_muts_analysis}
 # Key Mutations Characterised in the Literature
+#
+# The phenotype database (final_pheno_meta_analysis_*.csv) is already in long
+# format: one row per Gene_Mutation / Drug combination, with a pre-computed
+# Overall_EC50_Ratio (carried through by db_matching.py as EC50_ratio, rounded
+# to 2 dp) and a pre-assigned Level_of_resistance. So there is no per-study
+# averaging to do here - we just tidy and, where a mutation matched several
+# database entries, collapse to a single row per Gene/Mutation/Drug.
 if(nrow(resis_df)!=0){
-  colnames(resis_df) <- gsub("ganciclovir", "Ganciclovir", colnames(resis_df))
-  colnames(resis_df) <- gsub("foscarnet", "Foscarnet", colnames(resis_df))
-  colnames(resis_df) <- gsub("cidofovir", "Cidofovir", colnames(resis_df))
-  colnames(resis_df) <- gsub("maribavir", "Maribavir", colnames(resis_df))
-  colnames(resis_df) <- gsub("letermovir", "Letermovir", colnames(resis_df))
-  condensed_df <- resis_df |> 
-    mutate(
-      across(
-        ends_with("EC50_ratio"),
-        as.character
-      )
-    ) |> 
-    pivot_longer(
-      cols = matches("(_EC50_ratio|_resistance)$"),
-      names_to = c("Drug", ".value"),
-      names_pattern = "(.*)_(EC50_ratio|resistance)"
-    ) |>
-    filter(!(is.na(EC50_ratio) & is.na(resistance)))
-
-  parse_ec50 <- function(x) {
-
-    if (is.null(x) || length(x) == 0)
-      return(numeric())
-
-    x <- trimws(as.character(x))
-    x <- x[!is.na(x)]
-
-    out <- numeric()
-
-    for (v in x) {
-
-      v_lower <- tolower(v)
-
-      if (v_lower == "susceptible")
-        next
-
-      if (v_lower %in% c("resistance", "resistant"))
-        next
-
-      # Remove >, >=, <, <=
-      v <- gsub("^[<>]=?", "", v)
-
-      # Split values like 3.6/3.4 or 5.6\4.7
-      vals <- unlist(strsplit(v, "[/\\\\]"))
-
-      nums <- suppressWarnings(as.numeric(vals))
-
-      out <- c(out, nums[!is.na(nums)])
-    }
-
-    out
-  }
-
-  format_range <- function(x, digits = 1) {
-
-    # If every non-NA value is "Susceptible"
-    txt <- trimws(as.character(x))
-    txt <- txt[!is.na(txt)]
-
-    if (length(txt) > 0 &&
-        all(tolower(txt) == "susceptible")) {
-      return("Susceptible")
-    }
-
-    nums <- sort(parse_ec50(x))
-
-    if (length(nums) == 0)
-      return(NA_character_)
-
-    if (min(nums) == max(nums))
-      return(format(round(min(nums), digits), trim = TRUE))
-
-    sprintf(
-      "%s–%s",
-      format(round(min(nums), digits), trim = TRUE),
-      format(round(max(nums), digits), trim = TRUE)
-    )
-  }
 
   levels <- c("Susceptible", "Low", "Medium", "High")
 
+  # Collapse an ordered set of resistance levels to a single value or a range.
   format_level <- function(x){
 
     x <- factor(na.omit(x), levels = levels, ordered = TRUE)
@@ -186,58 +116,49 @@ if(nrow(resis_df)!=0){
       paste0(lo, "–", hi)
   }
 
-  get_resistance_level <- function(x) {
+  # Format one or more EC50 ratios (already rounded to 2 dp) as a value or range.
+  format_ec50 <- function(x){
 
-    case_when(
-      is.na(x) ~ "Unknown",
-      x < 2 ~ "Susceptible",
-      x < 5 ~ "Low",
-      x < 15 ~ "Medium",
-      TRUE ~ "High"
-    )
-  }
+    nums <- suppressWarnings(as.numeric(as.character(x)))
+    nums <- sort(nums[!is.na(nums)])
 
-  summarise_resistance <- function(x) {
+    if(length(nums) == 0)
+      return(NA_character_)
 
-    txt <- trimws(tolower(as.character(x)))
-    txt <- txt[!is.na(txt)]
+    fmt <- function(v) format(round(v, 2), trim = TRUE, nsmall = 0)
 
-    if (length(txt) > 0) {
-
-      if (all(txt == "susceptible"))
-        return("Susceptible")
-
-      if (all(txt %in% c("resistance", "resistant")))
-        return("Unknown")
-    }
-
-    nums <- sort(parse_ec50(x))
-
-    # No numeric values
-    if (length(nums) == 0)
-      return("Unknown")
-
-    levs <- factor(
-      get_resistance_level(nums),
-      levels = c("Unknown", "Susceptible", "Low", "Medium", "High"),
-      ordered = TRUE
-    )
-
-    lo <- min(levs)
-    hi <- max(levs)
-
-    if (lo == hi)
-      as.character(lo)
+    if(min(nums) == max(nums))
+      fmt(min(nums))
     else
-      paste0(lo, "–", hi)
+      sprintf("%s–%s", fmt(min(nums)), fmt(max(nums)))
   }
 
-  summary_df <- condensed_df |>
+  # Turn one or more ", "-delimited bibtex-key strings into "[@key1]; [@key2]".
+  format_refs <- function(x){
+
+    keys <- unlist(strsplit(paste(stats::na.omit(x), collapse = ", "), ",\\s*"))
+    keys <- unique(trimws(keys))
+    keys <- keys[!is.na(keys) & keys != "" & keys != "NA"]
+
+    if(length(keys) == 0)
+      return(NA_character_)
+
+    paste0("[@", keys, "]", collapse = "; ")
+  }
+
+  # Prefer exact single-mutation database entries; only fall back to compound
+  # (combination-mutation) entries for a Gene/Mutation/Drug with no exact match.
+  resis_use <- resis_df |>
+    group_by(Gene, Mutation, Drug) |>
+    filter(if(any(match_type == "exact")) match_type == "exact" else TRUE) |>
+    ungroup()
+
+  summary_df <- resis_use |>
     group_by(Gene, Mutation, Drug) |>
     summarise(
-      `EC50 ratio` = format_range(EC50_ratio),
-      `Level of resistance` = summarise_resistance(EC50_ratio),
-      Reference = paste0("[@", unique(BIBTEXKEY), "]", collapse = "; "),#paste(unique(Reference), collapse = "; "),
+      `EC50 ratio` = format_ec50(EC50_ratio),
+      `Level of resistance` = format_level(Level_of_resistance),
+      Reference = format_refs(References),
       .groups = "drop"
     )
 }
