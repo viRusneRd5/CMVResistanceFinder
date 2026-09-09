@@ -16,3 +16,4 @@ dependencies:
   - bioconda::bioconductor-rsamtools=2.26.0
   - conda-forge::r-tinytex==0.60
   - conda-forge::r-ggrepel=0.9.8
+  - conda-forge::r-kableextra==1.4.1

@@ -127,11 +127,15 @@ workflow CMVRESISTANCEFINDER {
     //
     // MODULE: Run trimmomatic
     //
-    if (params.trimmer == "trimmomatic" && params.seq_type == "short-read") {
+    if (params.trimmer == "trimmomatic" && params.adapter_file != null && params.seq_type == "short-read") {
         TRIMMOMATIC (
                 ch_raw_fastqs
             )
         ch_trimmed_fastq = ch_trimmed_fastq.mix(TRIMMOMATIC.out.trimmed_reads)
+    } else if (params.trimmer == "trimmomatic" && params.adapter_file == null && params.seq_type == "short-read"){
+        println "Comment: You must provide an adapter fasta file for trimming and specify --adapter_file <path/to/adapter/file"
+    } else if (params.trimmer == "trimmomatic" && params.adapter_file != null && params.seq_type == "long-read"){
+        println "Comment: This pipeline is not set up to perform trimming using trimmomatic on long-read sequencing data. Please use fastplong for trimming."
     }
 
     if (params.seq_type == "long-read") {
