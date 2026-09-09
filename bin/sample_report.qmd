@@ -3,25 +3,25 @@
 title: "CMV Antiviral Resistance Report"
 author: "`r params$report_author`"
 date: today
-bibliography: "`r params$bibliography`"
+bibliography: references.bib
 format:
   html:
     toc: true
     embed-resources: true
     df-print: kable
-  #pdf:
-    #toc: true
-    #cite-method: biblatex
-    #geometry:
-    #  - margin=2cm
-    #fontsize: 10pt
+  typst:
+    toc: true
+    df-print: kable
+    papersize: a4
+    margin:
+      x: 2cm
+      y: 2cm
 execute:
   echo: false
   warning: false
   message: false
 params:
   report_author: ""
-  bibliography: ""
   database_name: ""
   database_version: ""
   protocol: ""
@@ -231,18 +231,27 @@ if(nrow(resis_df)!=0){
       Letermovir
     )
 
-  legend <- HTML(
-    paste(
-      "<span style='display:inline-block;width:12px;height:12px;background:#A9A9A9;border:1px solid black;'></span> Unknown (not found in database)",
-      "<span style='display:inline-block;width:12px;height:12px;background:#00FF00;border:1px solid black;'></span> Susceptible (< 2 EC50 ratio)",
-      "&nbsp;&nbsp;",
-      "<span style='display:inline-block;width:12px;height:12px;background:#FFFF00;border:1px solid black;'></span> Low (>= 2 & < 5 EC50 ratio)",
-      "&nbsp;&nbsp;",
-      "<span style='display:inline-block;width:12px;height:12px;background:#FFA500;border:1px solid black;'></span> Medium (>= 5 & < 15 EC50 ratio)",
-      "&nbsp;&nbsp;",
-      "<span style='display:inline-block;width:12px;height:12px;background:#FF0000;border:1px solid black;'></span> High (>= 15 EC50 ratio)"
+  # Colour swatches only render in HTML; PDF (typst) gets a plain-text key.
+  if (knitr::is_html_output()) {
+    legend <- HTML(
+      paste(
+        "<span style='display:inline-block;width:12px;height:12px;background:#A9A9A9;border:1px solid black;'></span> Unknown (not found in database)",
+        "<span style='display:inline-block;width:12px;height:12px;background:#00FF00;border:1px solid black;'></span> Susceptible (< 2 EC50 ratio)",
+        "&nbsp;&nbsp;",
+        "<span style='display:inline-block;width:12px;height:12px;background:#FFFF00;border:1px solid black;'></span> Low (>= 2 & < 5 EC50 ratio)",
+        "&nbsp;&nbsp;",
+        "<span style='display:inline-block;width:12px;height:12px;background:#FFA500;border:1px solid black;'></span> Medium (>= 5 & < 15 EC50 ratio)",
+        "&nbsp;&nbsp;",
+        "<span style='display:inline-block;width:12px;height:12px;background:#FF0000;border:1px solid black;'></span> High (>= 15 EC50 ratio)"
+        )
       )
+  } else {
+    legend <- paste(
+      "Key (EC50 ratio vs wild-type):",
+      "Unknown = not found in database;",
+      "Susceptible < 2; Low 2 to <5; Medium 5 to <15; High >= 15."
     )
+  }
 
   tbl <- gt(summary_table)
   tbl <- tbl |>
@@ -936,7 +945,7 @@ if(nrow(resis_df)==0){
 } else {
   tbl |>
     tab_options(
-      table.font.size = if (knitr::is_latex_output()) "8pt" else "100%"
+      table.font.size = if (!knitr::is_html_output()) "8pt" else "100%"
     )
 }
 
@@ -965,9 +974,9 @@ if(nrow(all_muts)==0){
 } else {
   all_muts <- all_muts |> gt() |>
     tab_options(
-      table.font.size = if (knitr::is_latex_output()) "8pt" else "100%"
+      table.font.size = if (!knitr::is_html_output()) "8pt" else "100%"
     )
-  if (knitr::is_latex_output()) {
+  if (!knitr::is_html_output()) {
     all_muts <- all_muts |> cols_hide(columns = Effect)
   }
   all_muts
@@ -991,7 +1000,7 @@ plot
 if(nrow(insufficient) > 0){
   coverage_summary |> arrange(desc(`Codons below threshold`)) |> gt() |>
     tab_options(
-      table.font.size = if (knitr::is_latex_output()) "8pt" else "100%"
+      table.font.size = if (!knitr::is_html_output()) "8pt" else "100%"
     )
 } else {
   cat("All codons of known AMR mutations had sufficient sequencing coverage.")

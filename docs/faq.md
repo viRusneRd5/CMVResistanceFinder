@@ -49,7 +49,7 @@ You will need to provide the following:
 
 ```bash
 nextflow run viRusneRd5/cmvresistancefinder \
-   -profile <singularity/conda> \
+   -profile conda_singularity \
    --input samplesheet.csv \
    --outdir <OUTDIR> \
    --protocol amplicon \
@@ -69,15 +69,11 @@ If the demand is high enough, I might be able to make this work, but currently t
 
 **What if I want to provide my own database?**
 
-This is complicated. The database used in this pipeline was compiled from a huge systematic review. Honestly, it is a bit of a mess, but if you start changing the database it will break the report writing. If you are aware of some mutations that are missing from the database, please get in touch and I can add it into the next update.
+If you want to use your own database, then as long as you follow the same format as the existing database then you shouldn't have any problems. The database used in this pipeline was compiled from a huge systematic review [hopefully can cite soon!]. If you are aware of some mutations that are missing from the database, please get in touch and I can add it into the next update.
 
 **How long does the pipeline take to run?**
 
 This depends on how large your fastq files are, and whether you are running this on a HPC or a laptop. Running 33 paired end Illumina fastq files sequenced on a MiSeq i100 5M 300-cycle kit took less than 10 minutes to run with 48GB memory and 24 threads and using cached conda/singularity containers.
-
-**Why do I have to use all three variant callers, why can't I choose which one to use?**
-
-When developing this pipeline, I wanted to use multiple variant callers to be more confident in the variants that are called, and to make sure we aren't missing mutations. For this reason, the pipeline performs variant calling using all three variant callers and then combines the outputs of these.
 
 **Why doesn't this pipeline perform primer trimming using IVAR trim?**
 
