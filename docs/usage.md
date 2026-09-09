@@ -66,7 +66,7 @@ The typical command for running the pipeline is as follows:
 
 ```bash
 nextflow run viRusneRd5/cmvresistancefinder \
-   -profile singularity,conda \
+   -profile conda_singularity \
    --input samplesheet.csv \
    --outdir <OUTDIR> \
    --protocol amplicon \
@@ -76,7 +76,7 @@ nextflow run viRusneRd5/cmvresistancefinder \
    --run_name <run_name>
 ```
 
-This will launch the pipeline with the `singularity,conda` configuration profile, which will run singularity or if not available then conda (working to fix so that it can run on either). See below for more information about profiles.
+This launches the pipeline with the `conda_singularity` profile. This pipeline currently needs **both Conda and Apptainer/Singularity**: most tools run from their containers, but a few steps (the Quarto reports) have no usable container yet and fall back to Conda. We hope to support either engine alone in a future update. See below for more about profiles.
 
 Note that the pipeline will create the following files in your working directory:
 
@@ -97,7 +97,7 @@ Pipeline settings can be provided in a `yaml` or `json` file via `-params-file <
 The above pipeline run specified with a params file in yaml format:
 
 ```bash
-nextflow run viRusneRd5/cmvresistancefinder -profile singularity,conda -params-file params.yaml
+nextflow run viRusneRd5/cmvresistancefinder -profile conda_singularity -params-file params.yaml
 ```
 
 with:
@@ -142,39 +142,26 @@ To further assist in reproducibility, you can use share and reuse [parameter fil
 
 ### `-profile`
 
-Use this parameter to choose a configuration profile. Profiles can give configuration presets for different compute environments.
-
-Several generic profiles are bundled with the pipeline which instruct the pipeline to use software packaged using different methods (Docker, Singularity, Podman, Shifter, Charliecloud, Apptainer, Conda) - see below.
+Use this parameter to choose a configuration profile. Profiles give configuration presets for different compute environments.
 
 > [!IMPORTANT]
-> We highly recommend the use of Docker or Singularity containers for full pipeline reproducibility, however when this is not possible, Conda is also supported.
+> This pipeline currently requires **both Conda and Apptainer/Singularity** on the machine that runs it. Most tools run from their (Seqera/Wave) containers, but a few steps - the Quarto reports - have no usable published container and fall back to Conda. Until every module has a working container (or every tool a working Conda env) `conda_singularity` is the only supported way to run it. We hope to make it run on either engine alone in a future update.
 
 The pipeline also dynamically loads configurations from [https://github.com/nf-core/configs](https://github.com/nf-core/configs) when it runs, making multiple config profiles for various institutional clusters available at run time. For more information and to check if your system is supported, please see the [nf-core/configs documentation](https://github.com/nf-core/configs#documentation).
 
-Note that multiple profiles can be loaded, for example: `-profile test,docker` - the order of arguments is important!
+Note that multiple profiles can be loaded, for example: `-profile test,conda_singularity` - the order of arguments is important!
 They are loaded in sequence, so later profiles can overwrite earlier profiles.
 
-If `-profile` is not specified, the pipeline will run locally and expect all software to be installed and available on the `PATH`. This is _not_ recommended, since it can lead to different results on different machines dependent on the computer environment.
+If `-profile` is not specified, the pipeline will run locally and expect all software to be installed and available on the `PATH`. This is _not_ recommended.
 
+- `conda_singularity`
+  - The profile for real runs. Enables both Conda and Singularity (with `singularity.autoMounts`).
 - `test`
-  - A profile with a complete configuration for automated testing
-  - Includes links to test data so needs no other parameters
-- `docker`
-  - A generic configuration profile to be used with [Docker](https://docker.com/)
-- `singularity`
-  - A generic configuration profile to be used with [Singularity](https://sylabs.io/docs/)
-- `podman`
-  - A generic configuration profile to be used with [Podman](https://podman.io/)
-- `shifter`
-  - A generic configuration profile to be used with [Shifter](https://nersc.gitlab.io/development/shifter/how-to-use/)
-- `charliecloud`
-  - A generic configuration profile to be used with [Charliecloud](https://charliecloud.io/)
-- `apptainer`
-  - A generic configuration profile to be used with [Apptainer](https://apptainer.org/)
-- `wave`
-  - A generic configuration profile to enable [Wave](https://seqera.io/wave/) containers. Use together with one of the above (requires Nextflow ` 24.03.0-edge` or later).
-- `conda`
-  - A generic configuration profile to be used with [Conda](https://conda.io/docs/). Please only use Conda as a last resort i.e. when it's not possible to run the pipeline with Docker, Singularity, Podman, Shifter, Charliecloud, or Apptainer.
+  - A minimal test configuration. Use together with `conda_singularity`, i.e. `-profile test,conda_singularity`.
+- `test_full`
+  - A full-size test configuration. Use together with `conda_singularity`.
+- `debug`
+  - Development aid: keeps the `work` directory, dumps task hashes and enables process-name validation.
 
 ### `-resume`
 

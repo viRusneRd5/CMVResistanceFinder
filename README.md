@@ -27,7 +27,10 @@
 ## Usage
 
 > [!NOTE]
-> If you are new to Nextflow and nf-core, please refer to [this page](https://nf-co.re/docs/get_started/environment_setup/overview) on how to set-up Nextflow. Make sure to [test your setup](https://nf-co.re/docs/get_started/run-your-first-pipeline) with `-profile test` before running the workflow on actual data.
+> If you are new to Nextflow and nf-core, please refer to [this page](https://nf-co.re/docs/get_started/environment_setup/overview) on how to set-up Nextflow. Make sure to [test your setup](https://nf-co.re/docs/get_started/run-your-first-pipeline) with `-profile test,conda_singularity` before running the workflow on actual data.
+
+> [!IMPORTANT]
+> This pipeline currently needs **both Conda and Apptainer/Singularity** available on the machine that runs it, and is run with `-profile conda_singularity`. Most tools run from containers, but a few steps (the Quarto reports) do not yet have a usable container and fall back to Conda. We hope to make it run on either engine alone in a future update.
 
 
 
@@ -39,8 +42,13 @@ First, prepare a samplesheet with your input data that looks as follows:
 sample,fastq_1,fastq_2
 CONTROL_REP1,AEG588A1_S1_L002_R1_001.fastq.gz,AEG588A1_S1_L002_R2_001.fastq.gz
 ```
-
 Each row represents a fastq file (single-end) or a pair of fastq files (paired end).
+
+The `bin/create_samplesheet.py` script can help you make the samplesheet from fastq files within a directory. You can run this script as follows:
+
+```
+python create_samplesheet.py /path/to/fastq_dir samplesheet.csv
+```
 
 *Hostile Reference*
 
@@ -71,7 +79,7 @@ Now, you can run the pipeline using:
 
 ```bash
 nextflow run viRusneRd5/cmvresistancefinder \
-   -profile <singularity/conda> \
+   -profile conda_singularity \
    --input samplesheet.csv \
    --outdir <OUTDIR> \
    --protocol amplicon \

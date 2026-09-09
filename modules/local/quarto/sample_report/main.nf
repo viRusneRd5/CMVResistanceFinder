@@ -3,6 +3,11 @@ process QUARTO_SAMPLE_REPORT {
     label "process_medium"
 
     conda "${moduleDir}/environment.yml"
+    // No container declared: the only published quarto+R image
+    // (community.wave.seqera.io/library/quarto_..._pruned:e6e33e4fe2c03435) is a
+    // *pruned* Wave build whose dart-sass can't compile the HTML theme
+    // ("Theme file compilation failed"). This module therefore runs via conda -
+    // use the conda_singularity profile.
 
     input:
     tuple val(meta), path(bam), path(bai), path(resistance), path(formatted) //sorted bam file, resistance and formatted output files from MERGE_FORMAT
@@ -18,6 +23,7 @@ process QUARTO_SAMPLE_REPORT {
 
     output:
     tuple val(meta), path("${meta.id}.html")
+    tuple val(meta), path("${meta.id}.pdf"), optional: true, emit: pdf
     tuple val("${task.process}"), val('quarto'), eval('quarto -v'), emit: versions_quarto, topic: versions
 
     script:
@@ -25,33 +31,46 @@ process QUARTO_SAMPLE_REPORT {
     def ul51_pos = gene_positions['ul51']
     def ul54_pos = gene_positions['ul54']
     def ul56_pos = gene_positions['ul56']
+    def ul89_a_pos = gene_positions['ul89_a']
     def ul89_b_pos = gene_positions['ul89_b']
     def ul97_pos = gene_positions['ul97']
 
     """
     cp ${projectDir}/bin/sample_report.qmd .
+    cp ${bibliography} references.bib
 
-    quarto render \
-        sample_report.qmd \
-        -P report_author:"${report_author}" \
-        -P bibliography:${bibliography} \
-        -P database_name:${database_name} \
-        -P database_version:${cmv_resis_db_version} \
-        -P sample:${meta.id} \
-        -P resistance:${resistance} \
-        -P formatted:${formatted} \
-        -P bam:${bam} \
-        -P mut_bed:${mut_bed} \
-        -P protocol:${protocol} \
-        -P threshold:${min_depth} \
-        -P reference:${cmv_merlin_name} \
-        -P ul27_pos:${ul27_pos} \
-        -P ul51_pos:${ul51_pos} \
-        -P ul54_pos:${ul54_pos} \
-        -P ul56_pos:${ul56_pos} \
-        -P ul89_b_pos:${ul89_b_pos} \
-        -P ul97_pos:${ul97_pos} \
+cat > report-params.yml <<END_PARAMS
+report_author: "${report_author}"
+database_name: "${database_name}"
+database_version: "${cmv_resis_db_version}"
+sample: "${meta.id}"
+resistance: "${resistance}"
+formatted: "${formatted}"
+bam: "${bam}"
+mut_bed: "${mut_bed}"
+protocol: "${protocol}"
+threshold: "${min_depth}"
+reference: "${cmv_merlin_name}"
+ul27_pos: "${ul27_pos}"
+ul51_pos: "${ul51_pos}"
+ul54_pos: "${ul54_pos}"
+ul56_pos: "${ul56_pos}"
+ul89_a_pos: "${ul89_a_pos}"
+ul89_b_pos: "${ul89_b_pos}"
+ul97_pos: "${ul97_pos}"
+END_PARAMS
+
+    quarto render sample_report.qmd \\
+        --to html \\
+        --execute-params report-params.yml \\
         --output ${meta.id}.html
+
+    # PDF (typst) is best-effort: a failed render must not fail the pipeline.
+    if quarto render sample_report.qmd --to typst --execute-params report-params.yml --output ${meta.id}.pdf ; then
+        echo "PDF report written: ${meta.id}.pdf"
+    else
+        echo "WARNING: PDF (typst) render failed for ${meta.id} - the HTML report was still produced." >&2
+    fi
     """
 }
 

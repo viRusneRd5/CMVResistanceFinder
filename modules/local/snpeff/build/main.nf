@@ -50,6 +50,7 @@ process SNPEFF_BUILD {
 
     snpEff \\
         -Xmx${avail_mem}g \\
+        -XX:-UsePerfData \\
         build \\
         -config snpeff.config \\
         -dataDir ./snpeff_db \\

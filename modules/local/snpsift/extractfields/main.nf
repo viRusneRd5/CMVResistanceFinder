@@ -30,6 +30,7 @@ process SNPSIFT_EXTRACTFIELDS {
     """
     SnpSift \\
         -Xmx${avail_mem}g \\
+        -XX:-UsePerfData \\
         extractFields \\
         -s "," \\
         -e "." \\

@@ -105,10 +105,20 @@ def max_af_value(af):
 
 for file in input_files:
 
-    df = pd.read_csv(file, sep="\t", dtype=str)
+    # Skip anything before the real header row. Concurrent JVM tasks (snpEff,
+    # SnpSift) sharing /tmp can prepend a
+    #   [warning][perf,memops] Cannot use file /tmp/hsperfdata_<user>/<pid> ...
+    # line to the redirected output.
+    with open(file) as handle:
+        skiprows = next(
+            (i for i, line in enumerate(handle) if line.startswith("CHROM\t")),
+            0,
+        )
+
+    df = pd.read_csv(file, sep="\t", dtype=str, skiprows=skiprows)
 
     # Equivalent to separate_longer_delim() on columns 5:ncol(df)
-    explode_cols = explode_cols = [c for c in df.columns if "[*]." in c]
+    explode_cols = [c for c in df.columns if "[*]." in c]
 
     for col in explode_cols:
         df[col] = (
@@ -118,7 +128,8 @@ for file in input_files:
             .str.split(",")
         )
 
-    df = df.explode(explode_cols, ignore_index=True)
+    if explode_cols:
+        df = df.explode(explode_cols, ignore_index=True)
 
     # Extract variant caller from filename
     filename = Path(file).name
