@@ -36,6 +36,7 @@ process SNPEFF_ANN {
     """
     snpEff \\
         -Xmx${avail_mem}g \\
+        -XX:-UsePerfData \\
         ${fasta.baseName} \\
         -config $config \\
         -dataDir $db \\
