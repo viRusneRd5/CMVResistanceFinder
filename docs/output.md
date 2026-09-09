@@ -12,7 +12,7 @@ The directories listed below will be created in the results directory after the 
 
 The pipeline is built using [Nextflow](https://www.nextflow.io/) and processes data using the following steps:
 
-- [FastQC](#fastqc) - Raw read QC (FASTQ input only)
+- [FastQC](#fastqc) - Raw read QC (read input only)
 - [Variant and resistance files](#variant-and-resistance-files) - per-sample variant, resistance and (FASTA input) assessed-region tables
 - [Reports](#reports) - per-sample and per-run HTML/PDF resistance reports
 - [Gene consensus](#gene-consensus) - optional per-gene consensus FASTA export
@@ -57,7 +57,7 @@ FASTA-input reports drop the coverage/depth sections, add a "Regions Assessed" t
 
 </details>
 
-For FASTQ input this is built with `samtools consensus` (N below `--min_depth`, IUPAC codes above `--consensus_ambig_freq`); for FASTA input it is the aligned, re-oriented submitted consensus.
+For read input this is built with `samtools consensus` (N below `--min_depth`, IUPAC codes above `--consensus_ambig_freq`); for `fasta` input it is the aligned, re-oriented submitted consensus.
 
 ### FastQC
 
@@ -70,7 +70,7 @@ For FASTQ input this is built with `samtools consensus` (N below `--min_depth`, 
 
 </details>
 
-Read QC, trimming, host removal, alignment and per-caller variant calling only run for `--input_type fastq`.
+Read QC, trimming, host removal, alignment and per-caller variant calling only run for read input (`--input_type short-read` or `long-read`), not for `--input_type fasta`.
 
 [FastQC](http://www.bioinformatics.babraham.ac.uk/projects/fastqc/) gives general quality metrics about your sequenced reads. It provides information about the quality score distribution across your reads, per base sequence content (%A/T/G/C), adapter contamination and overrepresented sequences. For further reading and documentation see the [FastQC help pages](http://www.bioinformatics.babraham.ac.uk/projects/fastqc/Help/).
 

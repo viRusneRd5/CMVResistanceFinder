@@ -126,10 +126,10 @@ workflow CMVRESISTANCEFINDER {
     }
 
     //
-    // FASTQ input: reads -> QC/trimming -> host removal -> alignment -> variant callers.
-    // (everything down to `ch_merged_vcf` below is FASTQ-only)
+    // Read input (short-read / long-read): reads -> QC/trimming -> host removal -> alignment -> variant callers.
+    // (everything down to `ch_merged_vcf` below is reads-only; skipped for --input_type fasta)
     //
-    if (params.input_type == 'fastq') {
+    if (params.input_type != 'fasta') {
 
     //
     // SUBWORKFLOW: Create raw data channel
@@ -150,7 +150,7 @@ workflow CMVRESISTANCEFINDER {
     //
     // MODULE: Run fastp
     //
-    if (params.trimmer == "fastp" && params.seq_type == "short-read") {
+    if (params.trimmer == "fastp" && params.input_type == "short-read") {
         FASTP (
             ch_raw_fastqs.map { meta, reads -> tuple(meta, reads, []) },
             false,
@@ -163,18 +163,18 @@ workflow CMVRESISTANCEFINDER {
     //
     // MODULE: Run trimmomatic
     //
-    if (params.trimmer == "trimmomatic" && params.adapter_file != null && params.seq_type == "short-read") {
+    if (params.trimmer == "trimmomatic" && params.adapter_file != null && params.input_type == "short-read") {
         TRIMMOMATIC (
                 ch_raw_fastqs
             )
         ch_trimmed_fastq = ch_trimmed_fastq.mix(TRIMMOMATIC.out.trimmed_reads)
-    } else if (params.trimmer == "trimmomatic" && params.adapter_file == null && params.seq_type == "short-read"){
+    } else if (params.trimmer == "trimmomatic" && params.adapter_file == null && params.input_type == "short-read"){
         println "Comment: You must provide an adapter fasta file for trimming and specify --adapter_file <path/to/adapter/file"
-    } else if (params.trimmer == "trimmomatic" && params.adapter_file != null && params.seq_type == "long-read"){
+    } else if (params.trimmer == "trimmomatic" && params.adapter_file != null && params.input_type == "long-read"){
         println "Comment: This pipeline is not set up to perform trimming using trimmomatic on long-read sequencing data. Please use fastplong for trimming."
     }
 
-    if (params.seq_type == "long-read") {
+    if (params.input_type == "long-read") {
         FASTPLONG (
             ch_raw_fastqs,
             [], //adapter file not needed as can auto detect
@@ -233,7 +233,7 @@ workflow CMVRESISTANCEFINDER {
     //
     // MODULE: Alignment with Bowtie2
     //
-    if (params.aligner == 'bowtie2' && params.seq_type == "short-read") {
+    if (params.aligner == 'bowtie2' && params.input_type == "short-read") {
         BOWTIE2_ALIGN (
             ch_trimmed_fastq,
             ch_cmv_aligner_index,
@@ -262,7 +262,7 @@ workflow CMVRESISTANCEFINDER {
     //
     // MODULE: Alignment with bwa-mem3
     //
-    if (params.aligner == 'bwa-mem3' && params.seq_type == "short-read") {
+    if (params.aligner == 'bwa-mem3' && params.input_type == "short-read") {
         BWAMEM3_MEM (
             ch_trimmed_fastq,
             ch_cmv_aligner_index,
@@ -332,7 +332,7 @@ workflow CMVRESISTANCEFINDER {
     //
     // MODULE: Call variants with IVar, convert tsv to vcf, index, annotate with snpeff and extract with snpsift
     //
-    if (params.input_type == 'fastq' && 'ivar' in selected_callers) {
+    if (params.input_type != 'fasta' && 'ivar' in selected_callers) {
         IVAR_VARIANTS (
             ch_sorted_bam,
             ch_fasta_fai,
@@ -370,7 +370,7 @@ workflow CMVRESISTANCEFINDER {
     //
     // MODULE: Call variants with Freebayes, index, annotate with snpeff and extract with snpsift
     //
-    if (params.input_type == 'fastq' && 'freebayes' in selected_callers) {
+    if (params.input_type != 'fasta' && 'freebayes' in selected_callers) {
         ch_freebayes = ch_sorted_bam.join(ch_sort_bam_index)
         ch_freebayes = ch_freebayes.combine(ch_genes_bed)
             .map { meta, bam, bai, bed ->
@@ -411,7 +411,7 @@ workflow CMVRESISTANCEFINDER {
     //
     // MODULE: Call variants with Lofreq, index, annotate with snpeff and extract with snpsift
     //
-    if (params.input_type == 'fastq' && 'lofreq' in selected_callers) {
+    if (params.input_type != 'fasta' && 'lofreq' in selected_callers) {
         ch_lofreq = ch_sorted_bam.combine(ch_genes_bed)
             .map { meta, bam, bed ->
                 tuple(meta, bam, bed)
@@ -476,7 +476,7 @@ workflow CMVRESISTANCEFINDER {
             gene_positions
         }
 
-    if (params.input_type == 'fastq') {
+    if (params.input_type != 'fasta') {
 
         //
         // MODULE: Output html report for each sample using quarto
@@ -489,7 +489,7 @@ workflow CMVRESISTANCEFINDER {
                 ch_quarto,
                 ch_resis_mut_bed,
                 params.protocol,
-                'fastq',
+                params.input_type,
                 params.report_author,
                 params.bibliography,
                 ch_db_name,
@@ -523,7 +523,7 @@ workflow CMVRESISTANCEFINDER {
             params.report_author,
             params.run_name,
             ch_total_count,
-            'fastq'
+            params.input_type
         )
     }
 
@@ -540,7 +540,7 @@ workflow CMVRESISTANCEFINDER {
                 ch_quarto_fa,
                 ch_resis_mut_bed,
                 params.protocol,
-                'fasta',
+                params.input_type,
                 params.report_author,
                 params.bibliography,
                 ch_db_name,
@@ -560,7 +560,7 @@ workflow CMVRESISTANCEFINDER {
             params.report_author,
             params.run_name,
             ch_total_count,
-            'fasta'
+            params.input_type
         )
     }
 

@@ -25,7 +25,7 @@ params:
   database_name: ""
   database_version: ""
   protocol: ""
-  input_type: "fastq"
+  input_type: "short-read"
   sample: ""
   resistance: ""
   formatted: ""
@@ -55,7 +55,7 @@ p {
 
 Sample: **`r params$sample`**
 
-Input type: **`r if (params$input_type == "fasta") "Consensus sequence (FASTA)" else "Sequencing reads (FASTQ)"`**
+Input type: **`r switch(params$input_type, "fasta" = "Consensus sequence (FASTA)", "long-read" = "Long-read sequencing (FASTQ)", "Short-read sequencing (FASTQ)")`**
 
 `r if (params$input_type != "fasta") paste0("Sequencing depth threshold: **", params$threshold, "**") else ""`
 
