@@ -2,7 +2,7 @@
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "$id": "https://raw.githubusercontent.com/viRusneRd5/cmvresistancefinder/master/nextflow_schema.json",
     "title": "viRusneRd5/cmvresistancefinder pipeline parameters",
-    "description": "Identified cytomegalovirus (CMV) antiviral resistant mutations from short- and long-read sequencing data.",
+    "description": "Identifies cytomegalovirus (CMV) antiviral resistant mutations from short- and long-read sequencing data.",
     "type": "object",
     "$defs": {
         "input_output_options": {
@@ -12,7 +12,10 @@
             "description": "Define where the pipeline should find input data and save output data.",
             "required": [
                 "input",
-                "outdir"
+                "outdir",
+                "protocol",
+                "run_name",
+                "report_author"
             ],
             "properties": {
                 "input": {

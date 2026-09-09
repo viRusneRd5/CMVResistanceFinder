@@ -427,7 +427,7 @@ workflow CMVRESISTANCEFINDER {
                     gene_positions[gene.toLowerCase()] = "${start}-${end}"
                 }
                 gene_positions
-            }.first()
+            }
         QUARTO_SAMPLE_REPORT (
             ch_quarto,
             ch_resis_mut_bed,
