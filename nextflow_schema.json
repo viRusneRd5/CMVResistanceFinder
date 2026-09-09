@@ -243,6 +243,19 @@
                     "maximum": 1,
                     "description": "Minimum variant allele frequency to retain a call.",
                     "fa_icon": "fas fa-percentage"
+                },
+                "include_frameshifts": {
+                    "type": "boolean",
+                    "description": "FASTA input only: also call frameshift indels from a consensus alignment. Off by default because Sanger-consensus frameshifts are frequently artefacts.",
+                    "fa_icon": "fas fa-exclamation-triangle"
+                },
+                "fasta_min_identity": {
+                    "type": "number",
+                    "default": 0.9,
+                    "minimum": 0,
+                    "maximum": 1,
+                    "description": "FASTA input only: warn when a consensus record aligns to its declared gene below this identity (records below ~0.7 in both orientations fail).",
+                    "fa_icon": "fas fa-percentage"
                 }
             }
         },
