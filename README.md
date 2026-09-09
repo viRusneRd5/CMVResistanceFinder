@@ -39,8 +39,13 @@ First, prepare a samplesheet with your input data that looks as follows:
 sample,fastq_1,fastq_2
 CONTROL_REP1,AEG588A1_S1_L002_R1_001.fastq.gz,AEG588A1_S1_L002_R2_001.fastq.gz
 ```
-
 Each row represents a fastq file (single-end) or a pair of fastq files (paired end).
+
+The `bin/create_samplesheet.py` script can help you make the samplesheet from fastq files within a directory. You can run this script as follows:
+
+```
+python create_samplesheet.py /path/to/fastq_dir samplesheet.csv
+```
 
 *Hostile Reference*
 

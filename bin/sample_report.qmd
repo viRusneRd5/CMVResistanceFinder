@@ -36,9 +36,11 @@ params:
   ul51_pos: ""
   ul54_pos: ""
   ul56_pos: ""
+  ul89_a_pos: ""
   ul89_b_pos: ""
   ul97_pos: ""
 ---
+
 
 
 
@@ -74,7 +76,8 @@ ul27_pos <- params$ul27_pos
 ul51_pos <- params$ul51_pos
 ul54_pos <- params$ul54_pos
 ul56_pos <- params$ul56_pos
-ul89_pos <- params$ul89_b_pos
+ul89_a_pos <- params$ul89_a_pos
+ul89_b_pos <- params$ul89_b_pos
 ul97_pos <- params$ul97_pos
 ```
 
@@ -451,9 +454,12 @@ plot_gene_coverage <- function(bam,
                                chrom,
                                start,
                                end,
-                               gene_name = NULL) {
+                               gene_name = NULL,
+                               cds_start = NULL,
+                               cds_end = NULL,
+                               cds_names = NULL) {
 
-  # Create genomic range
+  # Create genomic range covering the whole gene
   gr <- GRanges(
     seqnames = chrom,
     ranges = IRanges(start = start, end = end)
@@ -465,17 +471,50 @@ plot_gene_coverage <- function(bam,
     param = ScanBamParam(which = gr)
   )
 
-  # Convert to data frame
-  depth_df <- data.frame(
-    position = start:end,
-    depth = as.numeric(cov[[chrom]][start:end]),
-    Type = gene_name
-  )
+  multi_cds <- !is.null(cds_start)
 
+  # ---------------------------------------------------------
+  # Create coverage data frame
+  # ---------------------------------------------------------
+
+  if (!multi_cds) {
+
+    # Single continuous CDS
+    depth_df <- data.frame(
+      position = start:end,
+      depth = as.numeric(cov[[chrom]][start:end]),
+      Type = gene_name,
+      segment = gene_name
+    )
+
+  } else {
+
+    # Multiple CDS regions (e.g. spliced UL89) - plotted as separate panels
+    # so the (often long) intron is not drawn.
+    if (is.null(cds_names)) {
+      cds_names <- paste0(gene_name, " (", seq_along(cds_start), ")")
+    }
+
+    depth_df <- purrr::map_dfr(
+      seq_along(cds_start),
+      function(i) data.frame(
+        position = cds_start[i]:cds_end[i],
+        depth = as.numeric(cov[[chrom]][cds_start[i]:cds_end[i]]),
+        Type = gene_name,
+        segment = cds_names[i]
+      )
+    )
+    # keep panels in the order the CDS segments were supplied
+    depth_df$segment <- factor(depth_df$segment, levels = cds_names)
+  }
+
+  # ---------------------------------------------------------
   # Get known AMR mutation positions to mark on plot
+  # ---------------------------------------------------------
+
   bed <- bed |>
-    filter(str_detect(label, gene_name)) |> 
-    distinct(start, end, .keep_all = TRUE) |> 
+    filter(str_detect(label, gene_name)) |>
+    distinct(start, end, .keep_all = TRUE) |>
     rowwise() |>
     mutate(
       depth = mean(
@@ -483,20 +522,105 @@ plot_gene_coverage <- function(bam,
           cov[[chrom]][start:end]
         )
       ),
-      coverage_status = ifelse(depth >= min_depth, "Sufficient", "Insufficient")
+      coverage_status = ifelse(
+        depth >= min_depth,
+        "Sufficient",
+        "Insufficient"
+      )
     ) |>
     ungroup()
 
+  # Assign each marker to its CDS panel (so it is drawn only there).
+  bed$segment <- gene_name
+  if (multi_cds) {
+    for (i in seq_along(cds_start)) {
+      in_seg <- bed$start >= cds_start[i] & bed$end <= cds_end[i]
+      bed$segment[in_seg] <- cds_names[i]
+    }
+    bed$segment <- factor(bed$segment, levels = cds_names)
+  }
+
+  # A codon is only ~3 bp wide, which is invisible on a gene-length x-axis.
+  # Give each marker a minimum on-screen width of ~1% of its panel's range,
+  # centred on the codon.
+  panel_span <- depth_df |>
+    group_by(segment) |>
+    summarise(span = max(position) - min(position), .groups = "drop")
+  bed <- bed |>
+    left_join(panel_span, by = "segment") |>
+    mutate(
+      marker_w = 0.01 * span,
+      xmin = pmin(start, (start + end) / 2 - marker_w / 2),
+      xmax = pmax(end,   (start + end) / 2 + marker_w / 2)
+    )
+
+  # ---------------------------------------------------------
   # Plot
-  p <- ggplot(depth_df, aes(x = position, y = depth)) +
+  # ---------------------------------------------------------
+
+  p <- ggplot(
+    depth_df,
+    aes(x = position, y = depth)
+  ) +
     geom_area(alpha = 0.7) +
     geom_line(linewidth = 0.3) +
-    theme(panel.grid = element_blank(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_rect(fill = NA), axis.line = element_line(linewidth = 0.5), strip.background = element_rect(fill = "#94e4ca", colour = "black", linewidth = 0.5), strip.text = element_text(colour = "black", face = "bold")) +
-    facet_grid(vars(Type)) +
-    labs(x = "Genome Position", y = "Depth") + 
-    geom_rect(data = bed, inherit.aes = FALSE, aes(xmin = start, xmax = end, ymin = 0, ymax = Inf, fill = coverage_status)) +
-    scale_fill_manual(values = c(Sufficient = "#A9A9A9", Insufficient = "red")) +
-    scale_y_continuous(limits = c(0, max(min_depth, max(depth_df$depth))))
+    theme(
+      panel.grid = element_blank(),
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank(),
+      panel.background = element_rect(fill = NA),
+      axis.line = element_line(linewidth = 0.5),
+      strip.background = element_rect(
+        fill = "#94e4ca",
+        colour = "black",
+        linewidth = 0.5
+      ),
+      strip.text = element_text(
+        colour = "black",
+        face = "bold"
+      )
+    ) +
+    labs(
+      x = "Genome Position",
+      y = "Depth"
+    ) +
+    geom_rect(
+      data = bed,
+      inherit.aes = FALSE,
+      aes(
+        xmin = xmin,
+        xmax = xmax,
+        ymin = 0,
+        ymax = Inf,
+        fill = coverage_status
+      )
+    ) +
+    scale_fill_manual(
+      values = c(
+        Sufficient = "#90EE90",
+        Insufficient = "red"
+      )
+    ) +
+    scale_y_continuous(
+      limits = c(
+        0,
+        max(min_depth, max(depth_df$depth))
+      )
+    )
+
+  # Single CDS: one panel, gene name on the strip (as before).
+  # Multiple CDS: one panel per segment, widths proportional to CDS length,
+  # so the intron is omitted.
+  if (multi_cds) {
+    p <- p + facet_grid(
+      rows = vars(Type),
+      cols = vars(segment),
+      scales = "free_x",
+      space = "free_x"
+    )
+  } else {
+    p <- p + facet_grid(vars(Type))
+  }
 
   return(p)
 }
@@ -546,9 +670,12 @@ ul89_plot <- plot_gene_coverage(
     bed = muts,
     min_depth = threshold,
     chrom = reference,
-    start = as.numeric(unlist(str_split(ul89_pos, "-"))[1]),
-    end = as.numeric(unlist(str_split(ul89_pos, "-"))[2]),
-    gene_name = "UL89"
+    start = min(as.numeric(unlist(str_split(c(ul89_b_pos, ul89_a_pos), "-")))),
+    end = max(as.numeric(unlist(str_split(c(ul89_b_pos, ul89_a_pos), "-")))),
+    gene_name = "UL89",
+    cds_start = c(min(as.numeric(unlist(str_split(ul89_b_pos, "-")))), min(as.numeric(unlist(str_split(ul89_a_pos, "-"))))),
+    cds_end = c(max(as.numeric(unlist(str_split(ul89_b_pos, "-")))), max(as.numeric(unlist(str_split(ul89_a_pos, "-"))))),
+    cds_names = c("UL89 (exon B)", "UL89 (exon A)")
 )
 
 ul97_plot <- plot_gene_coverage(
