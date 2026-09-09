@@ -18,6 +18,8 @@ VARIANT_COLS = [
     "AF[*]",
     "detected_by",
     "n_callers",
+    "mixed_population",
+    "mixed_with_reference",
 ]
 
 # Columns produced from the database for every variant/drug match
@@ -105,6 +107,27 @@ def main():
 
     variants = pd.read_csv(args.variants, sep="\t")
     database = pd.read_csv(args.database, dtype=str)
+
+    # FASTA (Sanger consensus) input carries MIXED / MIXED_REF flags from the
+    # consensus differ: MIXED means the base was an IUPAC ambiguity code with a
+    # non-reference allele; MIXED_REF means the reference base was also part of
+    # that ambiguity set (i.e. wild-type still present in the population).
+    # Surface these as friendly Yes/No columns so the report can render mixed
+    # calls (e.g. M460V/I, A594V/A) and flag them.
+    def _yes_no(series):
+        return series.astype(str).str.strip().str.lower().map(
+            {"true": "Yes", "false": "No"}
+        ).fillna("No")
+
+    if "MIXED" in variants.columns:
+        variants["mixed_population"] = _yes_no(variants["MIXED"])
+    else:
+        variants["mixed_population"] = "No"
+
+    if "MIXED_REF" in variants.columns:
+        variants["mixed_with_reference"] = _yes_no(variants["MIXED_REF"])
+    else:
+        variants["mixed_with_reference"] = "No"
 
     # Pre-parse the database into (row, {(gene, mutation), ...}) once
     db_records = [

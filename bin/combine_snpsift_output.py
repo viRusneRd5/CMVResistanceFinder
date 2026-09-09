@@ -168,17 +168,21 @@ freebayes_mask = (
 # Recalculate AF for FreeBayes
 # AF = AO / (AO + RO)
 # ----------------------------------------------------
+#
+# Only applies when FreeBayes rows are present. For inputs without FreeBayes
+# (e.g. Sanger/FASTA consensus, which has no AO/RO columns) this is a no-op.
 
-combined.loc[freebayes_mask, "AF[*]"] = (
-    combined.loc[freebayes_mask]
-    .apply(
-        lambda row: calculate_freebayes_af(
-            row["AO[*]"],
-            row["RO[*]"]
-        ),
-        axis=1
+if freebayes_mask.any() and {"AO[*]", "RO[*]"}.issubset(combined.columns):
+    combined.loc[freebayes_mask, "AF[*]"] = (
+        combined.loc[freebayes_mask]
+        .apply(
+            lambda row: calculate_freebayes_af(
+                row["AO[*]"],
+                row["RO[*]"]
+            ),
+            axis=1
+        )
     )
-)
 
 ## ----------------------------------------------------
 ## Filter LoFreq variants with AF < 0.05

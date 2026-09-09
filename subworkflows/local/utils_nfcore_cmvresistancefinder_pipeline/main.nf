@@ -88,25 +88,48 @@ workflow PIPELINE_INITIALISATION {
     // Create channel from input file provided through params.input
     //
 
-    channel
-        .fromList(samplesheetToList(input, "${projectDir}/assets/schema_input.json"))
-        .map {
-            meta, fastq_1, fastq_2 ->
-                if (!fastq_2) {
-                    return [ meta.id, meta + [ single_end:true ], [ fastq_1 ] ]
-                } else {
-                    return [ meta.id, meta + [ single_end:false ], [ fastq_1, fastq_2 ] ]
+    def input_schema = params.input_type == 'fasta'
+        ? "${projectDir}/assets/schema_input_fasta.json"
+        : "${projectDir}/assets/schema_input.json"
+
+    if (params.input_type == 'fasta') {
+        // one multi-record FASTA per sample; splitting by gene happens in the FASTA_INPUT subworkflow.
+        // Relative paths in the samplesheet are resolved against the samplesheet's own directory
+        // (nf-schema would otherwise resolve them against the launch directory).
+        def fasta_sheet_dir = file(input).parent
+        channel
+            .fromList(samplesheetToList(input, input_schema))
+            .map { meta, fasta ->
+                def raw = fasta.toString()
+                def fa = (raw ==~ /^(\/|[A-Za-z][A-Za-z0-9+.-]*:\/\/).*/) ? file(raw) : fasta_sheet_dir.resolve(raw)
+                if (!fa.exists()) {
+                    error("FASTA file for sample '${meta.id}' not found: '${raw}' (resolved to '${fa}')")
                 }
-        }
-        .groupTuple()
-        .map { samplesheet ->
-            validateInputSamplesheet(samplesheet)
-        }
-        .map {
-            meta, fastqs ->
-                return [ meta, fastqs.flatten() ]
-        }
-        .set { ch_samplesheet }
+                [ meta, fa ]
+            }
+            .set { ch_samplesheet }
+    }
+    else {
+        channel
+            .fromList(samplesheetToList(input, input_schema))
+            .map {
+                meta, fastq_1, fastq_2 ->
+                    if (!fastq_2) {
+                        return [ meta.id, meta + [ single_end:true ], [ fastq_1 ] ]
+                    } else {
+                        return [ meta.id, meta + [ single_end:false ], [ fastq_1, fastq_2 ] ]
+                    }
+            }
+            .groupTuple()
+            .map { samplesheet ->
+                validateInputSamplesheet(samplesheet)
+            }
+            .map {
+                meta, fastqs ->
+                    return [ meta, fastqs.flatten() ]
+            }
+            .set { ch_samplesheet }
+    }
 
     emit:
     samplesheet = ch_samplesheet
@@ -148,6 +171,16 @@ workflow PIPELINE_COMPLETION {
 //
 def validateInputParameters() {
     genomeExistsError()
+
+    if (params.input_type == 'fasta') {
+        def read_only = ['hostile_reference_path', 'kraken2_db', 'adapter_file', 'min_depth', 'min_freq']
+            .findAll { params[it] != null }
+        log.info(
+            "input_type = 'fasta': read-processing parameters " +
+            "(trimmer, aligner, variant_caller, min_depth, min_freq, host removal, Kraken2) are ignored." +
+            (read_only ? " Provided but unused: ${read_only.join(', ')}." : "")
+        )
+    }
 }
 
 //

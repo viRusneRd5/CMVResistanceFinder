@@ -9,6 +9,7 @@ include { paramsSummaryMultiqc                       } from '../subworkflows/nf-
 include { softwareVersionsToYAML                     } from '../subworkflows/nf-core/utils_nfcore_pipeline'
 include { methodsDescriptionText                     } from '../subworkflows/local/utils_nfcore_cmvresistancefinder_pipeline'
 include { INPUT_CHECK                                } from '../subworkflows/local/input_check/main'
+include { FASTA_INPUT                                } from '../subworkflows/local/fasta_input/main'
 include { PIPELINE_PREPARATION                       } from '../subworkflows/local/pipeline_preparation/main'
 include { HOSTILE_CLEAN                              } from '../modules/nf-core/hostile/clean/main'
 include { KRAKEN2_KRAKEN2                            } from '../modules/nf-core/kraken2/kraken2/main'
@@ -42,9 +43,12 @@ include { SNPEFF_ANN     as SNPEFF_IVAR              } from '../modules/local/sn
 include { SNPSIFT_EXTRACTFIELDS as SNPSIFT_FREEBAYES } from '../modules/local/snpsift/extractfields/main'
 include { SNPSIFT_EXTRACTFIELDS as SNPSIFT_LOFREQ    } from '../modules/local/snpsift/extractfields/main'
 include { SNPSIFT_EXTRACTFIELDS as SNPSIFT_IVAR      } from '../modules/local/snpsift/extractfields/main'
+include { SNPEFF_ANN            as SNPEFF_SANGER     } from '../modules/local/snpeff/ann'
+include { SNPSIFT_EXTRACTFIELDS as SNPSIFT_SANGER    } from '../modules/local/snpsift/extractfields/main'
 include { MERGE_FORMAT                               } from '../modules/local/merge_format/main'
 include { QUARTO_SAMPLE_REPORT                       } from '../modules/local/quarto/sample_report/main'
 include { SAMTOOLS_COVERAGE                          } from '../modules/local/samtools/coverage/main'
+include { GENE_CONSENSUS                             } from '../modules/local/gene_consensus/main'
 include { QUARTO_RUN_REPORT                          } from '../modules/local/quarto/run_report/main'
 
 
@@ -94,6 +98,38 @@ workflow CMVRESISTANCEFINDER {
 
     ch_genes_bed = Channel.fromPath(params.cmv_genes_bed).first()
 
+    ch_snpsift_all = Channel.empty()
+    ch_fasta_assessed = Channel.empty()
+
+    //
+    // SUBWORKFLOW: FASTA (Sanger / assembled per-gene consensus) input
+    // -> per-sample VCF -> shared snpEff / SnpSift, then MERGE_FORMAT below.
+    //
+    if (params.input_type == 'fasta') {
+        FASTA_INPUT (
+            ch_samplesheet,                        // [ meta, fasta ] from PIPELINE_INITIALISATION
+            ch_genes_bed,
+            ch_cmv_ref_fasta.map { meta, fasta -> fasta }
+        )
+        ch_fasta_assessed = FASTA_INPUT.out.assessed
+
+        SNPEFF_SANGER (
+            FASTA_INPUT.out.vcf,
+            PIPELINE_PREPARATION.out.snpeff_db,
+            PIPELINE_PREPARATION.out.snpeff_config,
+            ch_cmv_ref_fasta
+        )
+        SNPSIFT_SANGER (
+            SNPEFF_SANGER.out.vcf
+        )
+        ch_snpsift_all = ch_snpsift_all.mix(SNPSIFT_SANGER.out.txt)
+    }
+
+    //
+    // FASTQ input: reads -> QC/trimming -> host removal -> alignment -> variant callers.
+    // (everything down to `ch_merged_vcf` below is FASTQ-only)
+    //
+    if (params.input_type == 'fastq') {
 
     //
     // SUBWORKFLOW: Create raw data channel
@@ -258,6 +294,18 @@ workflow CMVRESISTANCEFINDER {
     )
     multiqc_input_ch = SAMTOOLS_STATS.out.stats.map { meta, stats_file -> stats_file }.collect()
 
+    //
+    // MODULE: Optionally export a per-gene consensus FASTA per sample
+    //
+    if (params.export_gene_consensus) {
+        GENE_CONSENSUS (
+            ch_bam_bai,
+            ch_genes_bed,
+            params.min_depth,
+            params.consensus_ambig_freq
+        )
+    }
+
 
     // TODO: get stats on samples that passed minimum mapped reads
 
@@ -281,12 +329,10 @@ workflow CMVRESISTANCEFINDER {
         error("--variant_caller must select at least one caller ('all', or a comma-separated list from: ${valid_callers.join(', ')}).")
     }
 
-    ch_snpsift_all = Channel.empty()
-
     //
     // MODULE: Call variants with IVar, convert tsv to vcf, index, annotate with snpeff and extract with snpsift
     //
-    if ('ivar' in selected_callers) {
+    if (params.input_type == 'fastq' && 'ivar' in selected_callers) {
         IVAR_VARIANTS (
             ch_sorted_bam,
             ch_fasta_fai,
@@ -324,7 +370,7 @@ workflow CMVRESISTANCEFINDER {
     //
     // MODULE: Call variants with Freebayes, index, annotate with snpeff and extract with snpsift
     //
-    if ('freebayes' in selected_callers) {
+    if (params.input_type == 'fastq' && 'freebayes' in selected_callers) {
         ch_freebayes = ch_sorted_bam.join(ch_sort_bam_index)
         ch_freebayes = ch_freebayes.combine(ch_genes_bed)
             .map { meta, bam, bai, bed ->
@@ -365,7 +411,7 @@ workflow CMVRESISTANCEFINDER {
     //
     // MODULE: Call variants with Lofreq, index, annotate with snpeff and extract with snpsift
     //
-    if ('lofreq' in selected_callers) {
+    if (params.input_type == 'fastq' && 'lofreq' in selected_callers) {
         ch_lofreq = ch_sorted_bam.combine(ch_genes_bed)
             .map { meta, bam, bed ->
                 tuple(meta, bam, bed)
@@ -396,11 +442,14 @@ workflow CMVRESISTANCEFINDER {
         ch_snpsift_all = ch_snpsift_all.mix(ch_snpsift_lofreq)
     }
 
+    } // end of FASTQ-only reads/callers section
+
     //
     // MODULE: Merge vcf files, format output files, extract matches in database
     //
     // Groups the snpsift output of whichever caller(s) were selected by sample,
-    // so this runs the same way whether 1, 2, or all 3 callers were chosen.
+    // so this runs the same way whether 1, 2, or all 3 callers were chosen
+    // (and the same way for a single "sanger" pseudo-caller from FASTA input).
     //
     ch_merged_vcf = ch_snpsift_all.groupTuple()
 
@@ -414,59 +463,106 @@ workflow CMVRESISTANCEFINDER {
 
 
     //
-    // MODULE: Output html report for each sample using quarto
+    // MODULE: Reports
     //
-    if (!params.skip_sample_report){
-        ch_quarto = ch_sorted_bam.join(ch_sort_bam_index).join(ch_resistance).join(ch_formatted)
-        ch_db_name = file(params.cmv_resis_db).baseName
-        gene_positions_ch = ch_genes_bed
-            .map { bed_file ->
-                def gene_positions = [:]
-                bed_file.eachLine { line ->
-                    def (chr, start, end, gene) = line.tokenize('\t')
-                    gene_positions[gene.toLowerCase()] = "${start}-${end}"
-                }
-                gene_positions
-            }.first()
-        QUARTO_SAMPLE_REPORT (
-            ch_quarto,
-            ch_resis_mut_bed,
-            params.protocol,
+    ch_db_name = file(params.cmv_resis_db).baseName
+    gene_positions_ch = ch_genes_bed
+        .map { bed_file ->
+            def gene_positions = [:]
+            bed_file.eachLine { line ->
+                def (chr, start, end, gene) = line.tokenize('\t')
+                gene_positions[gene.toLowerCase()] = "${start}-${end}"
+            }
+            gene_positions
+        }
+
+    if (params.input_type == 'fastq') {
+
+        //
+        // MODULE: Output html report for each sample using quarto
+        //
+        if (!params.skip_sample_report){
+            // sixth tuple slot (assessed.tsv) is FASTA-only -> empty here
+            ch_quarto = ch_sorted_bam.join(ch_sort_bam_index).join(ch_resistance).join(ch_formatted)
+                .map { meta, bam, bai, resistance, formatted -> tuple(meta, bam, bai, resistance, formatted, []) }
+            QUARTO_SAMPLE_REPORT (
+                ch_quarto,
+                ch_resis_mut_bed,
+                params.protocol,
+                'fastq',
+                params.report_author,
+                params.bibliography,
+                ch_db_name,
+                params.cmv_resis_db_version,
+                params.min_depth,
+                params.cmv_ref_name,
+                gene_positions_ch
+            )
+        }
+
+        //
+        // MODULE: Get coverage data for bam file to output in report
+        //
+        //TODO: Figure out wgs vs amplicon report output.
+        ch_bam_bai = ch_sorted_bam.join(ch_sort_bam_index)
+        SAMTOOLS_COVERAGE (
+            ch_bam_bai,
+            ch_genes_bed,
+            params.min_depth
+        )
+        ch_coverages = SAMTOOLS_COVERAGE.out.coverage.map { meta, coverage -> coverage }.collect()
+
+        //
+        // MODULE: Summarise coverage/depth and mutation results for whole run and output run summary report using quarto.
+        //
+        ch_resistances = ch_resistance.map { meta, resistance -> resistance }.collect()
+        ch_total_count = ch_raw_fastqs.count()
+        QUARTO_RUN_REPORT (
+            ch_coverages,
+            ch_resistances,
             params.report_author,
-            params.bibliography,
-            ch_db_name,
-            params.cmv_resis_db_version,
-            params.min_depth,
-            params.cmv_ref_name,
-            gene_positions_ch
+            params.run_name,
+            ch_total_count,
+            'fastq'
         )
     }
 
+    //
+    // MODULE: Reports for FASTA (Sanger consensus) input - no coverage/depth,
+    // adds a "regions assessed" summary from the consensus differ instead.
+    //
+    if (params.input_type == 'fasta') {
 
-    //
-    // MODULE: Get coverage data for bam file to output in report
-    //
-    //TODO: Figure out wgs vs amplicon report output.
-    ch_bam_bai = ch_sorted_bam.join(ch_sort_bam_index)
-    SAMTOOLS_COVERAGE (
-        ch_bam_bai,
-        ch_genes_bed,
-        params.min_depth
-    )
-    ch_coverages = SAMTOOLS_COVERAGE.out.coverage.map { meta, coverage -> coverage }.collect()
+        if (!params.skip_sample_report){
+            ch_quarto_fa = ch_resistance.join(ch_formatted).join(ch_fasta_assessed)
+                .map { meta, resistance, formatted, assessed -> tuple(meta, [], [], resistance, formatted, assessed) }
+            QUARTO_SAMPLE_REPORT (
+                ch_quarto_fa,
+                ch_resis_mut_bed,
+                params.protocol,
+                'fasta',
+                params.report_author,
+                params.bibliography,
+                ch_db_name,
+                params.cmv_resis_db_version,
+                params.min_depth,
+                params.cmv_ref_name,
+                gene_positions_ch
+            )
+        }
 
-    //
-    // MODULE: Summarise coverage/depth and mutation results for whole run and output run summary report using quarto.
-    //
-    ch_resistances = ch_resistance.map { meta, resistance -> resistance }.collect()
-    ch_total_count = ch_raw_fastqs.count()
-    QUARTO_RUN_REPORT (
-        ch_coverages,
-        ch_resistances,
-        params.report_author,
-        params.run_name,
-        ch_total_count
-    )
+        ch_resistances = ch_resistance.map { meta, resistance -> resistance }.collect()
+        ch_assessed_all = ch_fasta_assessed.map { meta, assessed -> assessed }.collect()
+        ch_total_count = ch_samplesheet.count()
+        QUARTO_RUN_REPORT (
+            ch_assessed_all,
+            ch_resistances,
+            params.report_author,
+            params.run_name,
+            ch_total_count,
+            'fasta'
+        )
+    }
 
     //
     // Collate and save software versions

@@ -2,7 +2,7 @@
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "$id": "https://raw.githubusercontent.com/viRusneRd5/cmvresistancefinder/master/nextflow_schema.json",
     "title": "viRusneRd5/cmvresistancefinder pipeline parameters",
-    "description": "Identified cytomegalovirus (CMV) antiviral resistant mutations from short- and long-read sequencing data.",
+    "description": "Identifies cytomegalovirus (CMV) antiviral resistant mutations from short- and long-read sequencing data.",
     "type": "object",
     "$defs": {
         "input_output_options": {
@@ -12,25 +12,68 @@
             "description": "Define where the pipeline should find input data and save output data.",
             "required": [
                 "input",
-                "outdir"
+                "outdir",
+                "protocol",
+                "run_name",
+                "report_author"
             ],
             "properties": {
                 "input": {
                     "type": "string",
                     "format": "file-path",
                     "exists": true,
-                    "schema": "assets/schema_input.json",
                     "mimetype": "text/csv",
                     "pattern": "^\\S+\\.csv$",
                     "description": "Path to comma-separated file containing information about the samples in the experiment.",
-                    "help_text": "You will need to create a design file with information about the samples in your experiment before running the pipeline. Use this parameter to specify its location. It has to be a comma-separated file with 3 columns, and a header row.",
+                    "help_text": "For --input_type fastq the samplesheet is validated against assets/schema_input.json (columns: sample, fastq_1, fastq_2); for --input_type fasta against assets/schema_input_fasta.json (columns: sample, fasta).",
                     "fa_icon": "fas fa-file-csv"
+                },
+                "input_type": {
+                    "type": "string",
+                    "default": "fastq",
+                    "enum": [
+                        "fastq",
+                        "fasta"
+                    ],
+                    "description": "Type of input in the samplesheet: 'fastq' for sequencing reads, or 'fasta' for Sanger / assembled per-gene consensus sequences.",
+                    "help_text": "With 'fasta', the samplesheet has a 'fasta' column (one multi-record FASTA per sample, one record per resistance gene) and read-processing parameters are ignored.",
+                    "fa_icon": "fas fa-file-alt"
                 },
                 "outdir": {
                     "type": "string",
                     "format": "directory-path",
                     "description": "The output directory where the results will be saved. You have to use absolute paths to storage on Cloud infrastructure.",
                     "fa_icon": "fas fa-folder-open"
+                },
+                "protocol": {
+                    "type": "string",
+                    "enum": [
+                        "amplicon",
+                        "wgs"
+                    ],
+                    "description": "Sequencing protocol used to generate the reads.",
+                    "help_text": "`amplicon` restricts variant calling and reporting to the six CMV resistance genes; `wgs` is intended for whole-genome data (WGS support is still a work in progress).",
+                    "fa_icon": "fas fa-vial"
+                },
+                "seq_type": {
+                    "type": "string",
+                    "default": "short-read",
+                    "enum": [
+                        "short-read",
+                        "long-read"
+                    ],
+                    "description": "Type of sequencing reads. `short-read` assumes Illumina, `long-read` assumes Oxford Nanopore.",
+                    "fa_icon": "fas fa-align-left"
+                },
+                "run_name": {
+                    "type": "string",
+                    "description": "A name for this sequencing run, shown at the top of the run-level report.",
+                    "fa_icon": "fas fa-tag"
+                },
+                "report_author": {
+                    "type": "string",
+                    "description": "Name / institute to show as the author of the resistance reports.",
+                    "fa_icon": "fas fa-user"
                 },
                 "multiqc_title": {
                     "type": "string",
@@ -74,6 +117,213 @@
                     "fa_icon": "fas fa-ban",
                     "hidden": true,
                     "default": "s3://ngi-igenomes/igenomes/"
+                },
+                "cmv_ref_fasta": {
+                    "type": "string",
+                    "format": "file-path",
+                    "exists": true,
+                    "default": "${projectDir}/assets/NC_006273.2.fasta",
+                    "pattern": "^\\S+\\.f(n)?a(sta)?(\\.gz)?$",
+                    "description": "CMV reference genome FASTA. Defaults to the bundled Merlin sequence (NC_006273.2).",
+                    "fa_icon": "far fa-file-code"
+                },
+                "cmv_ref_gff": {
+                    "type": "string",
+                    "format": "file-path",
+                    "exists": true,
+                    "default": "${projectDir}/assets/NC_006273.2.gff",
+                    "pattern": "^\\S+\\.gff$",
+                    "description": "Annotation for the CMV reference, used to build the snpEff database. Must end in `.gff` (not `.gff3`).",
+                    "fa_icon": "far fa-file-code"
+                },
+                "cmv_ref_name": {
+                    "type": "string",
+                    "default": "NC_006273.2",
+                    "description": "Name of the CMV reference sequence. Must match the FASTA header and the annotation seqid.",
+                    "fa_icon": "fas fa-font"
+                }
+            }
+        },
+        "trimming_host_removal_and_qc_options": {
+            "title": "Trimming, host removal and QC options",
+            "type": "object",
+            "fa_icon": "fas fa-cut",
+            "description": "Options controlling read trimming, host-read removal and taxonomic classification.",
+            "properties": {
+                "trimmer": {
+                    "type": "string",
+                    "default": "fastp",
+                    "enum": [
+                        "fastp",
+                        "trimmomatic"
+                    ],
+                    "description": "Read trimming tool.",
+                    "fa_icon": "fas fa-cut"
+                },
+                "adapter_file": {
+                    "type": "string",
+                    "format": "file-path",
+                    "exists": true,
+                    "pattern": "^\\S+\\.f(n)?a(sta)?$",
+                    "description": "Adapter FASTA for Trimmomatic. Required when `--trimmer trimmomatic` is used with short reads.",
+                    "fa_icon": "far fa-file-code"
+                },
+                "skip_host_removal": {
+                    "type": "boolean",
+                    "description": "Skip host-read removal with Hostile.",
+                    "fa_icon": "fas fa-forward"
+                },
+                "hostile_index": {
+                    "type": "string",
+                    "default": "human-t2t-hla",
+                    "description": "Name of the Hostile reference index to use.",
+                    "fa_icon": "fas fa-database"
+                },
+                "hostile_reference_path": {
+                    "type": "string",
+                    "format": "directory-path",
+                    "exists": true,
+                    "description": "Directory containing the Hostile reference / bowtie2 index. Required unless `--skip_host_removal` is set.",
+                    "fa_icon": "fas fa-folder-open"
+                },
+                "kraken2_db": {
+                    "type": "string",
+                    "format": "directory-path",
+                    "exists": true,
+                    "description": "Directory containing a Kraken2 database (e.g. the viral database) for taxonomic classification. Required unless `--skip_kraken2` is set.",
+                    "fa_icon": "fas fa-folder-open"
+                },
+                "kraken2_output": {
+                    "type": "boolean",
+                    "description": "Also publish the per-read Kraken2 output file (large).",
+                    "fa_icon": "fas fa-file-alt"
+                },
+                "skip_kraken2": {
+                    "type": "boolean",
+                    "description": "Skip Kraken2 taxonomic classification.",
+                    "fa_icon": "fas fa-forward"
+                }
+            }
+        },
+        "variant_calling_and_alignment_options": {
+            "title": "Variant calling and alignment options",
+            "type": "object",
+            "fa_icon": "fas fa-dna",
+            "description": "Options controlling alignment and variant calling.",
+            "properties": {
+                "aligner": {
+                    "type": "string",
+                    "default": "minimap2",
+                    "enum": [
+                        "minimap2",
+                        "bwa-mem3",
+                        "bowtie2"
+                    ],
+                    "description": "Read aligner. `bwa-mem3` and `bowtie2` are short-read only.",
+                    "fa_icon": "fas fa-align-center"
+                },
+                "variant_caller": {
+                    "type": "string",
+                    "default": "all",
+                    "pattern": "^(all|(ivar|freebayes|lofreq)(,(ivar|freebayes|lofreq))*)$",
+                    "description": "Variant caller(s) to run: `all`, or a comma-separated subset of `ivar`, `freebayes`, `lofreq` (e.g. `ivar,freebayes`).",
+                    "fa_icon": "fas fa-code-branch"
+                },
+                "min_depth": {
+                    "type": "integer",
+                    "default": 40,
+                    "minimum": 1,
+                    "description": "Minimum read depth for a position to be assessed for resistance.",
+                    "fa_icon": "fas fa-layer-group"
+                },
+                "min_freq": {
+                    "type": "number",
+                    "default": 0.05,
+                    "minimum": 0,
+                    "maximum": 1,
+                    "description": "Minimum variant allele frequency to retain a call.",
+                    "fa_icon": "fas fa-percentage"
+                },
+                "include_frameshifts": {
+                    "type": "boolean",
+                    "description": "FASTA input only: also call frameshift indels from a consensus alignment. Off by default because Sanger-consensus frameshifts are frequently artefacts.",
+                    "fa_icon": "fas fa-exclamation-triangle"
+                },
+                "fasta_min_identity": {
+                    "type": "number",
+                    "default": 0.9,
+                    "minimum": 0,
+                    "maximum": 1,
+                    "description": "FASTA input only: warn when a consensus record aligns to its declared gene below this identity (records below ~0.7 in both orientations fail).",
+                    "fa_icon": "fas fa-percentage"
+                },
+                "export_gene_consensus": {
+                    "type": "boolean",
+                    "description": "Write a per-gene consensus FASTA per sample to <outdir>/gene_consensus (forward orientation, N-padded to each gene region). Works for both input types.",
+                    "fa_icon": "fas fa-dna"
+                },
+                "consensus_ambig_freq": {
+                    "type": "number",
+                    "default": 0.2,
+                    "minimum": 0,
+                    "maximum": 1,
+                    "description": "FASTQ input only: minor-allele fraction above which the exported gene consensus uses an IUPAC ambiguity code (passed to samtools consensus).",
+                    "fa_icon": "fas fa-percentage"
+                }
+            }
+        },
+        "resistance_database_and_report_options": {
+            "title": "Resistance database and report options",
+            "type": "object",
+            "fa_icon": "fas fa-file-medical-alt",
+            "description": "The CMV resistance / phenotype database and the files used to build the reports.",
+            "properties": {
+                "cmv_resis_db": {
+                    "type": "string",
+                    "format": "file-path",
+                    "exists": true,
+                    "default": "${projectDir}/assets/final_pheno_meta_analysis_20260827.csv",
+                    "pattern": "^\\S+\\.csv$",
+                    "description": "Phenotype database: EC50 ratio and resistance level per mutation/drug.",
+                    "fa_icon": "fas fa-file-csv"
+                },
+                "cmv_resis_db_version": {
+                    "type": "string",
+                    "default": "27-08-2026",
+                    "description": "Version / date of the phenotype database, shown on the reports.",
+                    "fa_icon": "fas fa-calendar-alt"
+                },
+                "cmv_genes_bed": {
+                    "type": "string",
+                    "format": "file-path",
+                    "exists": true,
+                    "default": "${projectDir}/assets/CMV_NC_006273.2_resis_genes.bed",
+                    "pattern": "^\\S+\\.bed$",
+                    "description": "BED file with the start/end of the six CMV resistance genes (UL27, UL51, UL54, UL56, UL89, UL97), used for the coverage plots. Regenerate with bin/create_resis_genes_bed.py for a non-default reference.",
+                    "fa_icon": "fas fa-map-marker-alt"
+                },
+                "mut_bed": {
+                    "type": "string",
+                    "format": "file-path",
+                    "exists": true,
+                    "default": "${projectDir}/assets/resistance_sites.bed",
+                    "pattern": "^\\S+\\.bed$",
+                    "description": "BED file with the genomic positions of known resistance mutations, used to mark them on the coverage plots.",
+                    "fa_icon": "fas fa-map-pin"
+                },
+                "bibliography": {
+                    "type": "string",
+                    "format": "file-path",
+                    "exists": true,
+                    "default": "${projectDir}/assets/cmv_resis_db_bibliography.bib",
+                    "pattern": "^\\S+\\.bib$",
+                    "description": "BibTeX file with the references cited in the reports.",
+                    "fa_icon": "fas fa-book"
+                },
+                "skip_sample_report": {
+                    "type": "boolean",
+                    "description": "Skip the per-sample Quarto report.",
+                    "fa_icon": "fas fa-forward"
                 }
             }
         },
@@ -222,6 +472,15 @@
         },
         {
             "$ref": "#/$defs/reference_genome_options"
+        },
+        {
+            "$ref": "#/$defs/trimming_host_removal_and_qc_options"
+        },
+        {
+            "$ref": "#/$defs/variant_calling_and_alignment_options"
+        },
+        {
+            "$ref": "#/$defs/resistance_database_and_report_options"
         },
         {
             "$ref": "#/$defs/institutional_config_options"

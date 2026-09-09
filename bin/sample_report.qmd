@@ -25,9 +25,11 @@ params:
   database_name: ""
   database_version: ""
   protocol: ""
+  input_type: "fastq"
   sample: ""
   resistance: ""
   formatted: ""
+  assessed: ""
   bam: ""
   mut_bed: ""
   threshold: ""
@@ -53,7 +55,9 @@ p {
 
 Sample: **`r params$sample`**
 
-Sequencing depth treshold: **`r params$threshold`**
+Input type: **`r if (params$input_type == "fasta") "Consensus sequence (FASTA)" else "Sequencing reads (FASTQ)"`**
+
+`r if (params$input_type != "fasta") paste0("Sequencing depth threshold: **", params$threshold, "**") else ""`
 
 Reference sequence: **`r params$reference`**
 
@@ -67,9 +71,12 @@ pacman::p_load(Rsamtools, cowplot, tidyverse, GenomicAlignments, gt, knitr, rmar
 #Load data
 resis_output <- params$resistance
 all_muts_file <- params$formatted
+assessed_file <- params$assessed
 bam_file <- params$bam
 bed_file <- params$mut_bed
 protocol <- params$protocol
+input_type <- params$input_type
+is_fasta <- input_type == "fasta"
 threshold <- as.numeric(params$threshold)
 reference <- params$reference
 ul27_pos <- params$ul27_pos
@@ -86,6 +93,55 @@ ul97_pos <- params$ul97_pos
 
 #Detected Mutations - Predicted Resistance
 resis_df <- read_tsv(resis_output)
+
+# Keep the raw (per-allele) matches for the anti-join that builds the
+# "unknown significance" table - the collapse below rewrites Mutation.
+resis_df_raw <- resis_df
+
+# FASTA (Sanger consensus) input: there is no depth/frequency information, but
+# mixed (IUPAC) positions carry MIXED / MIXED_REF flags. Collapse alleles that
+# fall in the same codon into a single mixed-notation call:
+#   two non-reference alleles      -> M460V/I
+#   one allele + reference in mix  -> A594V/A
+# and expose a "Mixed population" column. The collapsed label then flows through
+# all downstream Gene/Mutation grouping unchanged.
+if (is_fasta && nrow(resis_df) > 0) {
+  resis_df$`Mixed population` <- ifelse(
+    toupper(resis_df$mixed_population) == "YES", "Yes", "No"
+  )
+
+  # Collapse simple substitutions (e.g. M460V) that share a codon into a single
+  # mixed-notation call: two non-reference alleles -> M460V/I; one allele with
+  # the reference still in the IUPAC set -> A594V/A. Indels and other notations
+  # are left exactly as db_matching.py produced them.
+  is_sub <- grepl("^[A-Za-z]\\d+[A-Za-z*]$", resis_df$Mutation)
+
+  collapse_codon <- function(df) {
+    df <- df |> arrange(suppressWarnings(as.integer(POS)))
+    alts <- paste(unique(str_extract(df$Mutation, "[A-Za-z*]$")), collapse = "/")
+    ref  <- str_extract(df$Mutation[1], "^[A-Za-z]")
+    cod  <- str_extract(df$Mutation[1], "\\d+")
+    base <- paste0(ref, cod, alts)
+    if (any(toupper(df$mixed_with_reference) == "YES") && !grepl("/", alts, fixed = TRUE))
+      base <- paste0(base, "/", ref)
+    df$Mutation <- base
+    df$`Mixed population` <- if (any(toupper(df$mixed_population) == "YES")) "Yes" else "No"
+    df
+  }
+
+  subs <- resis_df[is_sub, , drop = FALSE]
+  if (nrow(subs) > 0) {
+    subs <- subs |>
+      mutate(.codon = paste0(Gene, "_", str_extract(Mutation, "\\d+"))) |>
+      group_split(.codon) |>
+      lapply(collapse_codon) |>
+      bind_rows() |>
+      select(-.codon)
+  }
+  resis_df <- bind_rows(subs, resis_df[!is_sub, , drop = FALSE])
+} else if (nrow(resis_df) > 0) {
+  resis_df$`Mixed population` <- "No"
+}
 
 ```
 
@@ -162,6 +218,7 @@ if(nrow(resis_df)!=0){
       `EC50 ratio` = format_ec50(EC50_ratio),
       `Level of resistance` = format_level(Level_of_resistance),
       Reference = format_refs(References),
+      `Mixed population` = dplyr::first(`Mixed population`),
       .groups = "drop"
     )
 }
@@ -213,17 +270,20 @@ if(nrow(resis_df)!=0){
   summary_table <-
     summary_table |>
     mutate(Resistance = vapply(`Level of resistance`, highest_level, character(1))) |>
-    select(Gene, Mutation, Drug, Resistance) |>
+    select(Gene, Mutation, `Mixed population`, Drug, Resistance) |>
     distinct() |>
     pivot_wider(
       names_from = Drug,
       values_from = Resistance,
       names_expand = TRUE,
       values_fill = "Unknown"
-    ) |>
+    )
+
+  summary_table <- summary_table |>
     select(
       Gene,
       Mutation,
+      any_of(if (is_fasta) "Mixed population" else character(0)),
       Ganciclovir,
       Foscarnet,
       Cidofovir,
@@ -442,18 +502,25 @@ all_muts <- read_tsv(all_muts_file)
 #This outputs only mutations found in the resistance genes if protocol is amplicon, or all genes if protocol is wgs.
 if(protocol == "amplicon"){
   genes <- c("UL27", "UL51", "UL54", "UL56", "UL89", "UL97")
-  all_muts <- anti_join(all_muts, resis_df, join_by("ANN[*].GENE" == "Gene", "AA_change" == "Mutation")) |> filter(`ANN[*].GENE` %in% genes) 
+  all_muts <- anti_join(all_muts, resis_df_raw, join_by("ANN[*].GENE" == "Gene", "AA_change" == "Mutation")) |> filter(`ANN[*].GENE` %in% genes)
 } else if(protocol == "wgs"){
-  all_muts <- anti_join(all_muts, resis_df, join_by("ANN[*].GENE" == "Gene", "AA_change" == "Mutation"))
+  all_muts <- anti_join(all_muts, resis_df_raw, join_by("ANN[*].GENE" == "Gene", "AA_change" == "Mutation"))
 }
 
 all_muts$`EFF[*].EFFECT` <- gsub("&", " & ", all_muts$`EFF[*].EFFECT`)
 
 all_muts <- all_muts |> filter(`EFF[*].AA` != ".") |> rowwise() |> mutate(`Ref > Alt` = paste0(REF, " > ", ALT), Effect = `EFF[*].EFFECT`, Gene = `ANN[*].GENE`, Frequency = gsub(",", ", ", gsub("lofreq:|freebayes:|ivar:", "", `AF[*]`)), Depth = gsub(",", ", ", gsub("lofreq:|freebayes:|ivar:", "", `DP[*]`)), `Variant Callers` = gsub(",", ", ", detected_by)) |> select(POS, `Ref > Alt`, Gene, AA_change, Effect, Frequency, Depth, `Variant Callers`) |> arrange(POS)
+
+# FASTA consensus input has no per-variant depth or frequency, and the single
+# "sanger" pseudo-caller column adds nothing - drop those columns.
+if (is_fasta) {
+  all_muts <- all_muts |> ungroup() |> select(-Frequency, -Depth, -`Variant Callers`)
+}
 ```
 
 ```{r amr_cov_analysis}
-# AMR Gene Coverage
+# AMR Gene Coverage - depth/coverage is only meaningful for read (FASTQ) input.
+if (!is_fasta) {
 muts <- read_tsv(bed_file, col_names = FALSE)
 colnames(muts) <- c("Genome", "start", "end", "label")
 
@@ -743,6 +810,7 @@ if(protocol == "wgs"){
     theme_classic() +
   ggrepel::geom_text_repel(data = gene_df, aes(x = midpoint, y = Inf, label = gene), inherit.aes = FALSE, segment.color = NA)
 }
+} # end if(!is_fasta)
 
 
 ```
@@ -750,6 +818,11 @@ if(protocol == "wgs"){
 ```{r insuff_analysis}
 # table for AMR Gene Coverage
 
+# FASTA input: no BAM, so no codons "below threshold". Provide an empty
+# `insufficient` so the summary text and coverage sections below are simply skipped.
+insufficient <- tibble(start = integer(0), label = character(0))
+
+if (!is_fasta) {
 cov <- coverage(
     BamFile(bam_file)
   )
@@ -767,6 +840,7 @@ muts <- muts |>
   ungroup()
 
 insufficient <- muts |> filter(coverage_status == "Insufficient")
+}
 
 if(nrow(insufficient) > 0){
   coverage_summary <- insufficient |>
@@ -788,6 +862,27 @@ if(nrow(insufficient) > 0){
 
 
 
+```
+
+```{r regions_assessed}
+# FASTA input: which gene regions were covered by a submitted consensus record,
+# and how well each aligned to the reference.
+assessed_tbl <- NULL
+if (is_fasta && nzchar(assessed_file) && file.exists(assessed_file)) {
+  assessed_raw <- read_tsv(assessed_file, show_col_types = FALSE)
+  if (nrow(assessed_raw) > 0) {
+    assessed_tbl <- assessed_raw |>
+      transmute(
+        Gene = gene,
+        `Region assessed` = paste0(assessed_start, "–", assessed_end),
+        `Aligned bp` = aligned_bp,
+        `Identity (%)` = pct_identity,
+        `Reverse-complemented` = ifelse(tolower(reverse_complemented) %in% c("yes", "true"), "Yes", "No"),
+        `Variants called` = n_variants
+      ) |>
+      arrange(Gene)
+  }
+}
 ```
 
 
@@ -957,7 +1052,16 @@ if(nrow(resis_df)==0){
 
 ```{r key_mut_table}
 if(nrow(resis_df)!=0){
-  summary_df |> kable()
+  key_tbl <- summary_df
+  if (!is_fasta) {
+    key_tbl <- key_tbl |> select(-any_of("Mixed population"))
+  }
+  key_tbl |>
+    gt() |>
+    fmt_markdown(columns = Reference) |>
+    tab_options(
+      table.font.size = if (!knitr::is_html_output()) "8pt" else "100%"
+    )
 }
 
 ```
@@ -984,38 +1088,53 @@ if(nrow(all_muts)==0){
 ```
 
 
-# AMR Gene Coverage
+`r if(is_fasta) "# Regions Assessed" else "# AMR Gene Coverage"`
 
-Codons of known AMR mutations with insufficient sequencing coverage (below the depth threshold of **`r threshold`**) could not be assessed in this sample. In total **`r length(unique(insufficient$start))` codon positions** across six resistance genes fell below threshold. The figure and table below shows where resistance calls should be interpreted with caution due to coverage gaps.
+`r if(is_fasta) "Each submitted consensus record was aligned to its gene's reference region. Resistance calls are only made where a record was provided; genes absent from the table below were not assessed. Records that aligned better in the reverse-complement orientation are flagged (and re-oriented in the exported gene consensus)." else paste0("Codons of known AMR mutations with insufficient sequencing coverage (below the depth threshold of **", threshold, "**) could not be assessed in this sample. In total **", length(unique(insufficient$start)), " codon positions** across six resistance genes fell below threshold. The figure and table below shows where resistance calls should be interpreted with caution due to coverage gaps.")`
+
+```{r regions_assessed_table}
+if (is_fasta) {
+  if (is.null(assessed_tbl)) {
+    cat("No consensus records were assessed for this sample.")
+  } else {
+    assessed_tbl |> gt() |>
+      tab_options(
+        table.font.size = if (!knitr::is_html_output()) "8pt" else "100%"
+      )
+  }
+}
+```
 
 ```{r amr_cov_plot}
 #| fig-width: 16
 #| fig-height: 10
 
-plot
+if (!is_fasta) plot
 
 ```
 
 ```{r amr_cov_table}
-if(nrow(insufficient) > 0){
-  coverage_summary |> arrange(desc(`Codons below threshold`)) |> gt() |>
-    tab_options(
-      table.font.size = if (!knitr::is_html_output()) "8pt" else "100%"
-    )
-} else {
-  cat("All codons of known AMR mutations had sufficient sequencing coverage.")
+if(!is_fasta){
+  if(nrow(insufficient) > 0){
+    coverage_summary |> arrange(desc(`Codons below threshold`)) |> gt() |>
+      tab_options(
+        table.font.size = if (!knitr::is_html_output()) "8pt" else "100%"
+      )
+  } else {
+    cat("All codons of known AMR mutations had sufficient sequencing coverage.")
+  }
 }
 
 ```
 
 
-`r if(protocol == "wgs") "# Whole Genome Sequencing Coverage Plot" else ""`
+`r if(protocol == "wgs" && !is_fasta) "# Whole Genome Sequencing Coverage Plot" else ""`
 
 ```{r}
 #| fig-width: 16
 #| fig-height: 5
 
-if(protocol == "wgs"){
+if(protocol == "wgs" && !is_fasta){
   wgs_plot
 }
 

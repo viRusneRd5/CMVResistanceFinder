@@ -28,7 +28,7 @@ lint:
 template:
   org: viRusneRd5
   name: CMVResistanceFinder
-  description: Identified cytomegalovirus (CMV) antiviral resistant mutations from
+  description: Identifies cytomegalovirus (CMV) antiviral resistant mutations from
     short- and long-read sequencing data.
   author: Jocelyn Hume
   version: 1.0.0dev
