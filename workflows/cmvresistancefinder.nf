@@ -98,6 +98,9 @@ workflow CMVRESISTANCEFINDER {
     //
     // SUBWORKFLOW: Create raw data channel
     //
+    if (params.input_type != 'fastq') {
+        error("--input_type '${params.input_type}' is not implemented yet on this branch (feat/fasta-input). Use --input_type fastq.")
+    }
     INPUT_CHECK(sample_input)
     ch_raw_fastqs = ch_raw_fastqs.mix(INPUT_CHECK.out.reads) // meta[id, reads]
 

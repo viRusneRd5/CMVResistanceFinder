@@ -1,0 +1,26 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://raw.githubusercontent.com/viRusneRd5/cmvresistancefinder/master/assets/schema_input_fasta.json",
+    "title": "viRusneRd5/cmvresistancefinder pipeline - params.input schema (FASTA input)",
+    "description": "Schema for the file provided with params.input when params.input_type is 'fasta'",
+    "type": "array",
+    "items": {
+        "type": "object",
+        "properties": {
+            "sample": {
+                "type": "string",
+                "pattern": "^\\S+$",
+                "errorMessage": "Sample name must be provided and cannot contain spaces",
+                "meta": ["id"]
+            },
+            "fasta": {
+                "type": "string",
+                "format": "file-path",
+                "exists": true,
+                "pattern": "^([\\S\\s]*\\/)?[^\\s\\/]+\\.(fa|fasta|fna)$",
+                "errorMessage": "A FASTA file must be provided, cannot contain spaces and must have extension '.fa', '.fasta' or '.fna'. One multi-record FASTA per sample, one record per resistance gene, with the gene name at the start of each header (e.g. '>UL54')."
+            }
+        },
+        "required": ["sample", "fasta"]
+    }
+}

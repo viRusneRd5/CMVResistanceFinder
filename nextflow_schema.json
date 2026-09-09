@@ -22,12 +22,22 @@
                     "type": "string",
                     "format": "file-path",
                     "exists": true,
-                    "schema": "assets/schema_input.json",
                     "mimetype": "text/csv",
                     "pattern": "^\\S+\\.csv$",
                     "description": "Path to comma-separated file containing information about the samples in the experiment.",
-                    "help_text": "You will need to create a design file with information about the samples in your experiment before running the pipeline. Use this parameter to specify its location. It has to be a comma-separated file with 3 columns, and a header row.",
+                    "help_text": "For --input_type fastq the samplesheet is validated against assets/schema_input.json (columns: sample, fastq_1, fastq_2); for --input_type fasta against assets/schema_input_fasta.json (columns: sample, fasta).",
                     "fa_icon": "fas fa-file-csv"
+                },
+                "input_type": {
+                    "type": "string",
+                    "default": "fastq",
+                    "enum": [
+                        "fastq",
+                        "fasta"
+                    ],
+                    "description": "Type of input in the samplesheet: 'fastq' for sequencing reads, or 'fasta' for Sanger / assembled per-gene consensus sequences.",
+                    "help_text": "With 'fasta', the samplesheet has a 'fasta' column (one multi-record FASTA per sample, one record per resistance gene) and read-processing parameters are ignored.",
+                    "fa_icon": "fas fa-file-alt"
                 },
                 "outdir": {
                     "type": "string",
