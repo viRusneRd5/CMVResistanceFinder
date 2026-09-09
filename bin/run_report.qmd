@@ -17,6 +17,7 @@ params:
   report_author: ""
   run: ""
   n_samples: ""
+  input_type: "fastq"
 ---
 
 # Summary
@@ -25,6 +26,8 @@ Run: **`r params$run`**
 
 Number of samples run:  **`r params$n_samples`**
 
+Input type: **`r if (params$input_type == "fasta") "Consensus sequences (FASTA)" else "Sequencing reads (FASTQ)"`**
+
 ```{r}
 library(tidyverse)
 library(plotly)
@@ -32,31 +35,37 @@ library(DT)
 library(gt)
 library(htmltools)
 
-
+is_fasta <- params$input_type == "fasta"
 ```
 
 
 ```{r}
+# FASTQ input: per-gene coverage/depth from samtools coverage.
+# FASTA input: per-gene "was a consensus record assessed?" from the differ.
+coverage_df <- NULL
+assessed_df <- NULL
 
-coverage_files <- list.files(
-    pattern = "\\.coverage\\.tsv$"
-)
-
-coverage_df <- coverage_files |>
-    map_dfr(
-        ~read_tsv(.x, show_col_types = FALSE) |>
-            mutate(
-                Sample = tools::file_path_sans_ext(
-                    tools::file_path_sans_ext(basename(.x))
-                )
-            )
-    )
-
-#head(coverage_df)
+if (!is_fasta) {
+  coverage_files <- list.files(pattern = "\\.coverage\\.tsv$")
+  coverage_df <- coverage_files |>
+      map_dfr(
+          ~read_tsv(.x, show_col_types = FALSE) |>
+              mutate(
+                  Sample = tools::file_path_sans_ext(
+                      tools::file_path_sans_ext(basename(.x))
+                  )
+              )
+      )
+} else {
+  assessed_files <- list.files(pattern = "\\.assessed\\.tsv$")
+  assessed_df <- assessed_files |>
+      map_dfr(~read_tsv(.x, show_col_types = FALSE))
+}
 ```
 
 
 ```{r}
+if (!is_fasta) {
 coverage_summary <- coverage_df |>
     group_by(Gene) |>
     summarise(
@@ -67,11 +76,12 @@ coverage_summary <- coverage_df |>
             1
         )
     )
-
+}
 #coverage_summary
 ```
 
 ```{r}
+#| eval: !expr '!isTRUE(is_fasta)'
 coverage_heatmap <- ggplot(
     coverage_df,
     aes(
@@ -100,6 +110,7 @@ ggplotly(coverage_heatmap, tooltip="text")
 ```
 
 ```{r}
+#| eval: !expr '!isTRUE(is_fasta)'
 depth_heatmap <- ggplot(
     coverage_df,
     aes(
@@ -116,6 +127,35 @@ depth_heatmap <- ggplot(
 
 ggplotly(depth_heatmap)
 ```
+
+`r if (exists("is_fasta") && is_fasta) "## Consensus records assessed" else ""`
+
+```{r}
+# Per-sample x gene overview: which gene regions had a consensus record, and
+# how well it aligned to the reference.
+if (is_fasta) {
+  if (is.null(assessed_df) || nrow(assessed_df) == 0) {
+    cat("No consensus records were assessed in this run.")
+  } else {
+    assessed_wide <- assessed_df |>
+      mutate(
+        cell = paste0(
+          round(as.numeric(pct_identity), 1), "% (", aligned_bp, " bp)",
+          ifelse(tolower(reverse_complemented) %in% c("yes", "true"), " [rc]", "")
+        )
+      ) |>
+      select(sample, gene, cell) |>
+      pivot_wider(names_from = gene, values_from = cell, values_fill = "not assessed") |>
+      rename(Sample = sample)
+
+    assessed_gt <- assessed_wide |> gt() |>
+      tab_options(table.font.size = "90%")
+  }
+}
+if (exists("assessed_gt")) assessed_gt
+```
+
+`r if (exists("is_fasta") && is_fasta) "Values show alignment identity and aligned length; [rc] marks records that were reverse-complemented to match the reference orientation. \"not assessed\" means no consensus record was supplied for that gene." else ""`
 
 ```{r}
 resistance_files <- list.files(

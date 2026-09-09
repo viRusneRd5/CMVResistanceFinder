@@ -450,29 +450,33 @@ workflow CMVRESISTANCEFINDER {
 
 
     //
-    // MODULE: Reports (FASTQ input only for now - the FASTA reports come in a later step)
+    // MODULE: Reports
     //
+    ch_db_name = file(params.cmv_resis_db).baseName
+    gene_positions_ch = ch_genes_bed
+        .map { bed_file ->
+            def gene_positions = [:]
+            bed_file.eachLine { line ->
+                def (chr, start, end, gene) = line.tokenize('\t')
+                gene_positions[gene.toLowerCase()] = "${start}-${end}"
+            }
+            gene_positions
+        }
+
     if (params.input_type == 'fastq') {
 
         //
         // MODULE: Output html report for each sample using quarto
         //
         if (!params.skip_sample_report){
+            // sixth tuple slot (assessed.tsv) is FASTA-only -> empty here
             ch_quarto = ch_sorted_bam.join(ch_sort_bam_index).join(ch_resistance).join(ch_formatted)
-            ch_db_name = file(params.cmv_resis_db).baseName
-            gene_positions_ch = ch_genes_bed
-                .map { bed_file ->
-                    def gene_positions = [:]
-                    bed_file.eachLine { line ->
-                        def (chr, start, end, gene) = line.tokenize('\t')
-                        gene_positions[gene.toLowerCase()] = "${start}-${end}"
-                    }
-                    gene_positions
-                }
+                .map { meta, bam, bai, resistance, formatted -> tuple(meta, bam, bai, resistance, formatted, []) }
             QUARTO_SAMPLE_REPORT (
                 ch_quarto,
                 ch_resis_mut_bed,
                 params.protocol,
+                'fastq',
                 params.report_author,
                 params.bibliography,
                 ch_db_name,
@@ -505,7 +509,45 @@ workflow CMVRESISTANCEFINDER {
             ch_resistances,
             params.report_author,
             params.run_name,
-            ch_total_count
+            ch_total_count,
+            'fastq'
+        )
+    }
+
+    //
+    // MODULE: Reports for FASTA (Sanger consensus) input - no coverage/depth,
+    // adds a "regions assessed" summary from the consensus differ instead.
+    //
+    if (params.input_type == 'fasta') {
+
+        if (!params.skip_sample_report){
+            ch_quarto_fa = ch_resistance.join(ch_formatted).join(ch_fasta_assessed)
+                .map { meta, resistance, formatted, assessed -> tuple(meta, [], [], resistance, formatted, assessed) }
+            QUARTO_SAMPLE_REPORT (
+                ch_quarto_fa,
+                ch_resis_mut_bed,
+                params.protocol,
+                'fasta',
+                params.report_author,
+                params.bibliography,
+                ch_db_name,
+                params.cmv_resis_db_version,
+                params.min_depth,
+                params.cmv_ref_name,
+                gene_positions_ch
+            )
+        }
+
+        ch_resistances = ch_resistance.map { meta, resistance -> resistance }.collect()
+        ch_assessed_all = ch_fasta_assessed.map { meta, assessed -> assessed }.collect()
+        ch_total_count = ch_samplesheet.count()
+        QUARTO_RUN_REPORT (
+            ch_assessed_all,
+            ch_resistances,
+            params.report_author,
+            params.run_name,
+            ch_total_count,
+            'fasta'
         )
     }
 

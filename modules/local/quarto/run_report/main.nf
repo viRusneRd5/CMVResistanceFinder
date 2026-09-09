@@ -5,11 +5,12 @@ process QUARTO_RUN_REPORT {
     conda "${moduleDir}/environment.yml"
 
     input:
-    path(coverage) //coverage.tsv files
+    path(coverage) //coverage.tsv files (FASTQ input) or assessed.tsv files (FASTA input)
     path(resistance) //resistance.tsv files
     val(report_author) //name that you want to appear at the top of the report
     val(run_name) //run name to list at the top of the report
     val(n_samples) //number of samples in samplesheet to list on report
+    val(input_type) //one of fastq or fasta
 
     output:
     path("${run_name}.html")
@@ -25,6 +26,7 @@ process QUARTO_RUN_REPORT {
         -P report_author:"${report_author}" \
         -P run:${run_name} \
         -P n_samples:${n_samples} \
+        -P input_type:${input_type} \
         --output ${prefix}.html
     """
 

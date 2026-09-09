@@ -10,9 +10,10 @@ process QUARTO_SAMPLE_REPORT {
     // use the conda_singularity profile.
 
     input:
-    tuple val(meta), path(bam), path(bai), path(resistance), path(formatted) //sorted bam file, resistance and formatted output files from MERGE_FORMAT
+    tuple val(meta), path(bam), path(bai), path(resistance), path(formatted), path(assessed) //sorted bam (empty for fasta input), resistance + formatted from MERGE_FORMAT, assessed.tsv (fasta input only, empty otherwise)
     path(mut_bed) //this is the bed file listing the locations of the mutations for the report plot
     val(protocol) //one of amplicon or wgs
+    val(input_type) //one of fastq or fasta
     val(report_author) //name that you want to appear at the top of the report
     val(bibliography) //.bib .bibtex format
     val(database_name) //name of the database used
@@ -46,9 +47,11 @@ database_version: "${cmv_resis_db_version}"
 sample: "${meta.id}"
 resistance: "${resistance}"
 formatted: "${formatted}"
+assessed: "${assessed}"
 bam: "${bam}"
 mut_bed: "${mut_bed}"
 protocol: "${protocol}"
+input_type: "${input_type}"
 threshold: "${min_depth}"
 reference: "${cmv_merlin_name}"
 ul27_pos: "${ul27_pos}"
