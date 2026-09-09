@@ -76,6 +76,24 @@ def best_alignment(aligner, query, ref_region):
     return fwd, query, False
 
 
+def build_gene_consensus(ref_region, alignment):
+    """Consensus the length of ref_region, in reference coordinates and forward
+    (reference) orientation: aligned consensus bases where the record covers the
+    gene, N everywhere else (outside the aligned span or where the record has a
+    gap). Insertions relative to the reference are dropped."""
+    target_aln = str(alignment[0])
+    query_aln = str(alignment[1])
+    ref_pos = alignment.aligned[0][0][0]
+    out = ["N"] * len(ref_region)
+    for r, q in zip(target_aln, query_aln):
+        if r == "-":
+            continue
+        if q != "-":
+            out[ref_pos] = q
+        ref_pos += 1
+    return "".join(out)
+
+
 def emit_variants(gene, chrom, gene_start, ref_region, alignment):
     """Walk one local alignment; yield VCF rows and return the assessed span + identity."""
     target_aln = str(alignment[0])   # aligned reference (with '-')
@@ -190,7 +208,8 @@ def main():
     p.add_argument("--output-vcf", required=True)
     p.add_argument("--output-assessed", required=True)
     p.add_argument("--output-gene-fasta", required=True,
-                   help="the input records, re-oriented to reference sense")
+                   help="per-gene consensus in reference coordinates and forward "
+                        "orientation, N-padded to the full gene region")
     p.add_argument("--min-identity", type=float, default=0.9,
                    help="warn below this alignment identity")
     p.add_argument("--min-identity-hard", type=float, default=0.7,
@@ -252,7 +271,7 @@ def main():
             "reverse_complemented": "yes" if is_rc else "no",
             "n_variants": len(rows),
         })
-        reoriented.append((gene, oriented_query))
+        reoriented.append((gene, build_gene_consensus(ref_region, alignment)))
 
     write_vcf(args.output_vcf, args.sample, contig or "NC_006273.2", all_rows)
 

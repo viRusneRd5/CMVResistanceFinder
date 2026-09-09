@@ -48,6 +48,7 @@ include { SNPSIFT_EXTRACTFIELDS as SNPSIFT_SANGER    } from '../modules/local/sn
 include { MERGE_FORMAT                               } from '../modules/local/merge_format/main'
 include { QUARTO_SAMPLE_REPORT                       } from '../modules/local/quarto/sample_report/main'
 include { SAMTOOLS_COVERAGE                          } from '../modules/local/samtools/coverage/main'
+include { GENE_CONSENSUS                             } from '../modules/local/gene_consensus/main'
 include { QUARTO_RUN_REPORT                          } from '../modules/local/quarto/run_report/main'
 
 
@@ -292,6 +293,18 @@ workflow CMVRESISTANCEFINDER {
         ch_fasta_fai
     )
     multiqc_input_ch = SAMTOOLS_STATS.out.stats.map { meta, stats_file -> stats_file }.collect()
+
+    //
+    // MODULE: Optionally export a per-gene consensus FASTA per sample
+    //
+    if (params.export_gene_consensus) {
+        GENE_CONSENSUS (
+            ch_bam_bai,
+            ch_genes_bed,
+            params.min_depth,
+            params.consensus_ambig_freq
+        )
+    }
 
 
     // TODO: get stats on samples that passed minimum mapped reads

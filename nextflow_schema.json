@@ -256,6 +256,19 @@
                     "maximum": 1,
                     "description": "FASTA input only: warn when a consensus record aligns to its declared gene below this identity (records below ~0.7 in both orientations fail).",
                     "fa_icon": "fas fa-percentage"
+                },
+                "export_gene_consensus": {
+                    "type": "boolean",
+                    "description": "Write a per-gene consensus FASTA per sample to <outdir>/gene_consensus (forward orientation, N-padded to each gene region). Works for both input types.",
+                    "fa_icon": "fas fa-dna"
+                },
+                "consensus_ambig_freq": {
+                    "type": "number",
+                    "default": 0.2,
+                    "minimum": 0,
+                    "maximum": 1,
+                    "description": "FASTQ input only: minor-allele fraction above which the exported gene consensus uses an IUPAC ambiguity code (passed to samtools consensus).",
+                    "fa_icon": "fas fa-percentage"
                 }
             }
         },
