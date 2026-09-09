@@ -6,7 +6,18 @@
 
 <!-- TODO nf-core: Add documentation about anything specific to running your pipeline. For general topics, please point to (and add to) the main nf-core website. -->
 
-## Samplesheet input
+## Input types
+
+The pipeline can start from either sequencing reads (FASTQ, the default) or an already-assembled per-gene consensus (FASTA, e.g. from Sanger sequencing). Pick one with `--input_type`:
+
+```bash
+--input_type fastq   # (default) short- or long-read FASTQ, aligned and variant-called
+--input_type fasta   # per-gene consensus sequence, aligned to the reference and diffed
+```
+
+A run is one type only - every row of the samplesheet must be the same type. The samplesheet layout depends on `--input_type` (see below).
+
+## Samplesheet input (FASTQ)
 
 You will need to create a samplesheet with information about the samples you would like to analyse before running the pipeline. Use this parameter to specify its location. It has to be a comma-separated file with 3 columns, and a header row as shown in the examples below.
 
@@ -59,6 +70,38 @@ python bin/create_samplesheet.py /path/to/fastq_dir samplesheet.csv
 ```
 
 It recognises the common Illumina naming pattern (`SAMPLE_S1_L001_R1_001.fastq.gz`), simpler `SAMPLE_R1/R2.fastq.gz` and `SAMPLE_1/2.fastq.gz` patterns, and treats any FASTQ with no R1/R2 marker as single-end. It warns about anything it couldn't confidently pair up rather than guessing - always check the output before running the pipeline with it.
+
+## Samplesheet input (FASTA / Sanger consensus)
+
+With `--input_type fasta` the samplesheet has just two columns:
+
+```csv title="samplesheet_fasta.csv"
+sample,fasta
+PATIENT_01,PATIENT_01.consensus.fasta
+PATIENT_02,/data/sanger/PATIENT_02.consensus.fasta
+```
+
+| Column   | Description                                                                                                                                                                                 |
+| -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `sample` | Custom sample name. Spaces are converted to underscores (`_`).                                                                                                                                |
+| `fasta`  | One **multi-record** FASTA per sample - one record per resistance gene. Extension `.fa`, `.fasta` or `.fna`. Paths may be absolute or relative to the samplesheet.                              |
+
+Each record header must **start with** one of the six resistance gene names (case-insensitive; a suffix is allowed, e.g. `>UL54`, `>UL54_patient01`, `>UL89_A`):
+
+```text title="PATIENT_01.consensus.fasta"
+>UL54
+ACGT...
+>UL97 amplicon 1
+ACGT...
+>UL56
+ACGT...
+```
+
+Accepted names: `UL27`, `UL51`, `UL54`, `UL56`, `UL89_A`, `UL89_B`, `UL97`. An unrecognised header, or a record that does not align to its declared gene, is a hard error. You only need to include the genes you sequenced - genes with no record are simply reported as "not assessed". Each record can cover all or part of its gene, and may be given in either orientation (the pipeline aligns to the reference and re-orients as needed). Mixed bases should be written as IUPAC ambiguity codes; these are reported as mixed-population calls (e.g. `A594V/A`).
+
+An [example FASTA samplesheet](../assets/test_data/samplesheet_fasta.csv) and [consensus fixture](../assets/test_data/sample_sanger.fasta) are bundled with the pipeline and used by `-profile test_fasta`.
+
+FASTA runs skip all read processing (trimming, host removal, Kraken2, alignment, per-caller variant calling) and the coverage-based report sections; `--protocol`, `--run_name` and `--report_author` are still required.
 
 ## Running the pipeline
 
@@ -158,6 +201,8 @@ If `-profile` is not specified, the pipeline will run locally and expect all sof
   - The profile for real runs. Enables both Conda and Singularity (with `singularity.autoMounts`).
 - `test`
   - A minimal test configuration. Use together with `conda_singularity`, i.e. `-profile test,conda_singularity`.
+- `test_fasta`
+  - A minimal `--input_type fasta` test configuration (bundled Sanger-consensus fixture). Use together with `conda_singularity`.
 - `test_full`
   - A full-size test configuration. Use together with `conda_singularity`.
 - `debug`
@@ -174,6 +219,28 @@ You can also supply a run name to resume a specific run: `-resume [run-name]`. U
 Specify the path to a specific config file (this is a core Nextflow command). See the [nf-core website documentation](https://nf-co.re/usage/configuration) for more information.
 
 ## Custom configuration
+
+### `--input_type`
+
+`fastq` (default) or `fasta`. See [Input types](#input-types).
+
+### FASTA input options
+
+These only take effect with `--input_type fasta`:
+
+- `--fasta_min_identity` (default `0.9`) - warn when a consensus record aligns to its declared gene below this identity. A record below ~0.7 in both orientations is treated as the wrong gene and fails the run.
+- `--include_frameshifts` (default `false`) - also call frameshifting indels from the consensus alignment. Off by default because Sanger-consensus frameshifts are frequently artefacts; substitutions and in-frame indels are always called.
+
+### `--export_gene_consensus`
+
+Boolean (default `false`), works for **both** input types. Writes one per-gene consensus FASTA per sample to `<outdir>/gene_consensus/<sample>.consensus.fasta`, in reference coordinates and forward orientation, N-padded to each full gene region so records line up across samples and can be checked in other tools.
+
+- FASTA input: the aligned, re-oriented consensus for each submitted gene.
+- FASTQ input: built with `samtools consensus` from the sorted BAM - positions below `--min_depth` become `N`, and minor alleles above `--consensus_ambig_freq` become IUPAC ambiguity codes.
+
+### `--consensus_ambig_freq`
+
+Minor-allele fraction (default `0.2`) above which the exported gene consensus uses an IUPAC ambiguity code. FASTQ input only.
 
 ### `--seq_type`
 

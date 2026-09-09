@@ -15,10 +15,8 @@
             },
             "fasta": {
                 "type": "string",
-                "format": "file-path",
-                "exists": true,
                 "pattern": "^([\\S\\s]*\\/)?[^\\s\\/]+\\.(fa|fasta|fna)$",
-                "errorMessage": "A FASTA file must be provided, cannot contain spaces and must have extension '.fa', '.fasta' or '.fna'. One multi-record FASTA per sample, one record per resistance gene, with the gene name at the start of each header (e.g. '>UL54')."
+                "errorMessage": "A FASTA file must be provided, cannot contain spaces and must have extension '.fa', '.fasta' or '.fna'. One multi-record FASTA per sample, one record per resistance gene, with the gene name at the start of each header (e.g. '>UL54'). Paths may be absolute or relative to the samplesheet."
             }
         },
         "required": ["sample", "fasta"]

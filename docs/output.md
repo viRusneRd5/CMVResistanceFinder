@@ -12,9 +12,52 @@ The directories listed below will be created in the results directory after the 
 
 The pipeline is built using [Nextflow](https://www.nextflow.io/) and processes data using the following steps:
 
-- [FastQC](#fastqc) - Raw read QC
+- [FastQC](#fastqc) - Raw read QC (FASTQ input only)
+- [Variant and resistance files](#variant-and-resistance-files) - per-sample variant, resistance and (FASTA input) assessed-region tables
+- [Reports](#reports) - per-sample and per-run HTML/PDF resistance reports
+- [Gene consensus](#gene-consensus) - optional per-gene consensus FASTA export
 - [MultiQC](#multiqc) - Aggregate report describing results and QC from the whole pipeline
 - [Pipeline information](#pipeline-information) - Report metrics generated during the workflow execution
+
+### Variant and resistance files
+
+<details markdown="1">
+<summary>Output files</summary>
+
+- `variant_files/`
+  - `<sample>.merged.tsv`: annotated variants merged across the selected variant callers (FASTQ) or from the consensus differ (FASTA).
+  - `<sample>.formatted.tsv`: the above with amino-acid changes normalised.
+  - `<sample>.resistance.tsv`: variants matched against the phenotype database, one row per matching drug/study entry.
+  - `<sample>.assessed.tsv` (**FASTA input only**): one row per submitted gene record - the genome region it covered, alignment identity, whether it was reverse-complemented, and how many variants it yielded.
+
+</details>
+
+For FASTA input `resistance.tsv` and `formatted.tsv` also carry `mixed_population` / `mixed_with_reference` columns, derived from IUPAC ambiguity codes in the consensus.
+
+### Reports
+
+<details markdown="1">
+<summary>Output files</summary>
+
+- `report_files/`
+  - `<sample>.html` / `<sample>.pdf`: per-sample resistance report.
+  - `<run_name>.html`: cross-sample run summary.
+
+</details>
+
+FASTA-input reports drop the coverage/depth sections, add a "Regions Assessed" table (from `assessed.tsv`), collapse same-codon mixed calls to a single notation (`M460V/I`, `A594V/A`) and add a "Mixed population" column.
+
+### Gene consensus
+
+<details markdown="1">
+<summary>Output files</summary>
+
+- `gene_consensus/` (only with `--export_gene_consensus`)
+  - `<sample>.consensus.fasta`: one record per resistance gene, in reference coordinates and forward orientation, N-padded to the full gene region.
+
+</details>
+
+For FASTQ input this is built with `samtools consensus` (N below `--min_depth`, IUPAC codes above `--consensus_ambig_freq`); for FASTA input it is the aligned, re-oriented submitted consensus.
 
 ### FastQC
 
@@ -26,6 +69,8 @@ The pipeline is built using [Nextflow](https://www.nextflow.io/) and processes d
   - `*_fastqc.zip`: Zip archive containing the FastQC report, tab-delimited data file and plot images.
 
 </details>
+
+Read QC, trimming, host removal, alignment and per-caller variant calling only run for `--input_type fastq`.
 
 [FastQC](http://www.bioinformatics.babraham.ac.uk/projects/fastqc/) gives general quality metrics about your sequenced reads. It provides information about the quality score distribution across your reads, per base sequence content (%A/T/G/C), adapter contamination and overrepresented sequences. For further reading and documentation see the [FastQC help pages](http://www.bioinformatics.babraham.ac.uk/projects/fastqc/Help/).
 

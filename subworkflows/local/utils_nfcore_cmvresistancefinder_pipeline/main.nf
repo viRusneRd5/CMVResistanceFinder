@@ -93,10 +93,20 @@ workflow PIPELINE_INITIALISATION {
         : "${projectDir}/assets/schema_input.json"
 
     if (params.input_type == 'fasta') {
-        // one multi-record FASTA per sample; splitting by gene happens in the FASTA_INPUT subworkflow
+        // one multi-record FASTA per sample; splitting by gene happens in the FASTA_INPUT subworkflow.
+        // Relative paths in the samplesheet are resolved against the samplesheet's own directory
+        // (nf-schema would otherwise resolve them against the launch directory).
+        def fasta_sheet_dir = file(input).parent
         channel
             .fromList(samplesheetToList(input, input_schema))
-            .map { meta, fasta -> [ meta, file(fasta) ] }
+            .map { meta, fasta ->
+                def raw = fasta.toString()
+                def fa = (raw ==~ /^(\/|[A-Za-z][A-Za-z0-9+.-]*:\/\/).*/) ? file(raw) : fasta_sheet_dir.resolve(raw)
+                if (!fa.exists()) {
+                    error("FASTA file for sample '${meta.id}' not found: '${raw}' (resolved to '${fa}')")
+                }
+                [ meta, fa ]
+            }
             .set { ch_samplesheet }
     }
     else {

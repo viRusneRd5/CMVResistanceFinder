@@ -14,7 +14,7 @@
 
 ## Introduction
 
-**viRusneRd5/cmvresistancefinder** is a bioinformatics pipeline that identifies variants from short-read sequencing data and compares to a database of known clinically relevant mutations. **This pipeline is for research use only and should not be used for informing clinical practice.**
+**viRusneRd5/cmvresistancefinder** is a bioinformatics pipeline that identifies CMV antiviral-resistance mutations and compares them to a database of known clinically relevant mutations. It can start from sequencing reads (`--input_type fastq`, short- or long-read, aligned and variant-called) or from an already-assembled per-gene consensus (`--input_type fasta`, e.g. Sanger sequencing, aligned to the reference and diffed). **This pipeline is for research use only and should not be used for informing clinical practice.**
 
 <!-- TODO nf-core:
    Complete this sentence with a 2-3 sentence summary of what types of data the pipeline ingests, a brief overview of the major pipeline sections and the types of output it produces. You're giving an overview to someone new to nf-core here, in 15-20 seconds. For an example, see https://github.com/nf-core/rnaseq/blob/master/README.md#introduction
@@ -49,6 +49,8 @@ The `bin/create_samplesheet.py` script can help you make the samplesheet from fa
 ```
 python create_samplesheet.py /path/to/fastq_dir samplesheet.csv
 ```
+
+To start from a per-gene consensus instead (e.g. Sanger sequencing), add `--input_type fasta` and use a two-column samplesheet (`sample,fasta`) where each `fasta` is one multi-record FASTA per sample, one record per resistance gene with the gene name at the start of the header. See [docs/usage.md](docs/usage.md#samplesheet-input-fasta--sanger-consensus).
 
 *Hostile Reference*
 
