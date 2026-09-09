@@ -3,6 +3,9 @@ process SNPSIFT_EXTRACTFIELDS {
     label 'process_medium'
 
     conda "${moduleDir}/environment.yml"
+    container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
+        'https://depot.galaxyproject.org/singularity/snpsift:5.4.0c--hdfd78af_0' :
+        'quay.io/biocontainers/snpsift:5.4.0c--hdfd78af_0' }"
 
     input:
     tuple val(meta), path(vcf)

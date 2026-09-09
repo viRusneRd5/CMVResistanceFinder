@@ -50,6 +50,16 @@ TREATMENT_REP3,AEG588A6_S6_L004_R1_001.fastq.gz,
 
 An [example samplesheet](../assets/samplesheet.csv) has been provided with the pipeline.
 
+### Generating a samplesheet automatically
+
+If your FASTQ files are all in one directory, `bin/create_samplesheet.py` can build the samplesheet for you by pairing up R1/R2 files based on their filenames:
+
+```bash
+python bin/create_samplesheet.py /path/to/fastq_dir samplesheet.csv
+```
+
+It recognises the common Illumina naming pattern (`SAMPLE_S1_L001_R1_001.fastq.gz`), simpler `SAMPLE_R1/R2.fastq.gz` and `SAMPLE_1/2.fastq.gz` patterns, and treats any FASTQ with no R1/R2 marker as single-end. It warns about anything it couldn't confidently pair up rather than guessing - always check the output before running the pipeline with it.
+
 ## Running the pipeline
 
 The typical command for running the pipeline is as follows:
