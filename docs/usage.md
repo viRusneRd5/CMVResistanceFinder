@@ -301,7 +301,11 @@ This sets the minimum read depth at the codon location required for calling a va
 
 ### `--min_freq`
 
-This sets the minimum variant frequency required to call a variant (default is `0.05`, i.e. 5%). This parameter sets the minimum frequency flag for ivar and freebayes, while lofreq is filtered later in the pipeline when merging the data from all variant callers.
+This sets the minimum variant frequency required to call a variant (default is `0.05`, i.e. 5%). It is passed to ivar and freebayes at calling time; lofreq has no minimum-frequency option, so it is applied to the lofreq calls with `lofreq filter -a` before annotation.
+
+### `--min_mapq`
+
+Minimum read mapping quality for variant calling (default is `20`). Passed to all three callers - `samtools mpileup -q` for the ivar pileup, `--min-mapping-quality` for freebayes and `--min-mq` for lofreq. Reads that aligned ambiguously are dropped before calling; set to `0` to disable. The six resistance genes are in the unique-long region rather than a repeat, so this has little effect on coverage there.
 
 ### `--skip_sample_report`
 

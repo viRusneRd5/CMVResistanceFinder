@@ -33,6 +33,7 @@ include { IVAR_VARIANTS                              } from '../modules/local/iv
 include { FREEBAYES                                  } from '../modules/local/freebayes/main'
 include { BCFTOOLS_SORT                              } from '../modules/nf-core/bcftools/sort/main'
 include { LOFREQ_CALL                                } from '../modules/nf-core/lofreq/call/main'
+include { LOFREQ_FILTER                              } from '../modules/local/lofreq/filter/main'
 include { BCFTOOLS_INDEX as INDEX_FREEBAYES          } from '../modules/nf-core/bcftools/index/main'
 include { BCFTOOLS_INDEX as INDEX_LOFREQ             } from '../modules/nf-core/bcftools/index/main'
 include { BCFTOOLS_INDEX as IVAR_INDEX               } from '../modules/nf-core/bcftools/index/main'
@@ -421,7 +422,13 @@ workflow CMVRESISTANCEFINDER {
             ch_lofreq,
             params.cmv_ref_fasta
         )
-        ch_lofreq_vcf = LOFREQ_CALL.out.vcf
+
+        // lofreq call has no minimum-frequency option, so apply --min_freq here
+        // (keeps the published lofreq vcf consistent with ivar / freebayes)
+        LOFREQ_FILTER (
+            LOFREQ_CALL.out.vcf
+        )
+        ch_lofreq_vcf = LOFREQ_FILTER.out.vcf
 
         INDEX_LOFREQ (
             ch_lofreq_vcf
@@ -455,8 +462,7 @@ workflow CMVRESISTANCEFINDER {
 
     MERGE_FORMAT (
         ch_merged_vcf,
-        params.cmv_resis_db,
-        params.min_freq
+        params.cmv_resis_db
     )
     ch_resistance = MERGE_FORMAT.out.resistance
     ch_formatted = MERGE_FORMAT.out.formatted

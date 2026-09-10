@@ -173,11 +173,11 @@ def validateInputParameters() {
     genomeExistsError()
 
     if (params.input_type == 'fasta') {
-        def read_only = ['hostile_reference_path', 'kraken2_db', 'adapter_file', 'min_depth', 'min_freq']
+        def read_only = ['hostile_reference_path', 'kraken2_db', 'adapter_file', 'min_depth', 'min_freq', 'min_mapq']
             .findAll { params[it] != null }
         log.info(
             "input_type = 'fasta': read-processing parameters " +
-            "(trimmer, aligner, variant_caller, min_depth, min_freq, host removal, Kraken2) are ignored." +
+            "(trimmer, aligner, variant_caller, min_depth, min_freq, min_mapq, host removal, Kraken2) are ignored." +
             (read_only ? " Provided but unused: ${read_only.join(', ')}." : "")
         )
     }

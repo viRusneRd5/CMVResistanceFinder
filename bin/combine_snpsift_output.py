@@ -26,13 +26,6 @@ parser.add_argument(
 )
 
 parser.add_argument(
-    "--min_freq",
-    required=True,
-    type=float,
-    help="Minimum variant frequency"
-)
-
-parser.add_argument(
     "files",
     nargs="+",
     help="Input SnpSift files"
@@ -43,7 +36,6 @@ args = parser.parse_args()
 sampleID = args.sample
 output_file = args.output
 input_files = args.files
-min_freq = args.min_freq
 
 # ------------------------------------------------------------------
 # Read and process files
@@ -88,20 +80,6 @@ def calculate_freebayes_af(ao, ro):
             af_vals.append("")
 
     return ",".join(af_vals)
-
-def max_af_value(af):
-    if pd.isna(af):
-        return 0.0
-
-    try:
-        values = [
-            float(x)
-            for x in str(af).split(",")
-            if x != ""
-        ]
-        return max(values) if values else 0.0
-    except ValueError:
-        return 0.0
 
 for file in input_files:
 
@@ -184,16 +162,8 @@ if freebayes_mask.any() and {"AO[*]", "RO[*]"}.issubset(combined.columns):
         )
     )
 
-## ----------------------------------------------------
-## Filter LoFreq variants with AF < 0.05
-## ----------------------------------------------------
-
-combined = combined[
-    ~(
-        (combined["variant_caller"].str.lower() == "lofreq") &
-        (combined["AF[*]"].apply(max_af_value) < min_freq)
-    )
-]
+# LoFreq's minimum-frequency cutoff is applied upstream by `lofreq filter`
+# (LOFREQ_FILTER module), so every caller's input here is already frequency-filtered.
 
 
 # ------------------------------------------------------------------
