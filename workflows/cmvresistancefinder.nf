@@ -186,40 +186,29 @@ workflow CMVRESISTANCEFINDER {
     }
 
     //
-    // MODULE: Run Hostile to remove host reads and Kraken2 to classify
+    // MODULE: Host-read removal (Hostile) and/or read classification (Kraken2).
+    // `ch_final_reads` is what goes on to FastQC and alignment: host-removed reads
+    // if host removal ran, otherwise the trimmed reads.
     //
-    if (!params.skip_host_removal && !params.skip_kraken2) {
+    ch_final_reads = ch_trimmed_fastq
+
+    if (!params.skip_host_removal) {
         ch_hostile_reference = Channel.value( [params.hostile_index, params.hostile_reference_path] )
         HOSTILE_CLEAN (
             ch_trimmed_fastq,
             ch_hostile_reference
         )
         ch_final_reads = HOSTILE_CLEAN.out.fastq
+    }
 
+    if (!params.skip_kraken2) {
         KRAKEN2_KRAKEN2 (
             ch_final_reads,
             params.kraken2_db,
             params.kraken2_output,
             params.kraken2_output
         )
-        ch_multiqc_files =  ch_multiqc_files.mix(KRAKEN2_KRAKEN2.out.report.collect{it[1]}.ifEmpty([]))
-    }
-
-    //
-    // MODULE: Kraken2 to classify reads
-    //
-    if (params.skip_host_removal && !params.skip_kraken2) {
-        KRAKEN2_KRAKEN2 (
-            ch_trimmed_fastq,
-            params.kraken2_db,
-            params.kraken2_output,
-            params.kraken2_output
-        )
-        ch_multiqc_files =  ch_multiqc_files.mix(KRAKEN2_KRAKEN2.out.report.collect{it[1]}.ifEmpty([]))
-
-        ch_final_reads = ch_trimmed_fastq
-    } else {
-        ch_final_reads = ch_trimmed_fastq
+        ch_multiqc_files = ch_multiqc_files.mix(KRAKEN2_KRAKEN2.out.report.collect{it[1]}.ifEmpty([]))
     }
 
     //
@@ -236,7 +225,7 @@ workflow CMVRESISTANCEFINDER {
     //
     if (params.aligner == 'bowtie2' && params.input_type == "short-read") {
         BOWTIE2_ALIGN (
-            ch_trimmed_fastq,
+            ch_final_reads,
             ch_cmv_aligner_index,
             ch_cmv_ref_fasta,
             false, //save unaligned
@@ -250,7 +239,7 @@ workflow CMVRESISTANCEFINDER {
     //
     if (params.aligner == 'minimap2') {
         MINIMAP2_ALIGN (
-            ch_trimmed_fastq,
+            ch_final_reads,
             ch_cmv_aligner_index,
             true,
             'bai',
@@ -265,7 +254,7 @@ workflow CMVRESISTANCEFINDER {
     //
     if (params.aligner == 'bwa-mem3' && params.input_type == "short-read") {
         BWAMEM3_MEM (
-            ch_trimmed_fastq,
+            ch_final_reads,
             ch_cmv_aligner_index,
             ch_cmv_ref_fasta,
             true
