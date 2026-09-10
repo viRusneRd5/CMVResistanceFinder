@@ -509,7 +509,19 @@ if(protocol == "amplicon"){
 
 all_muts$`EFF[*].EFFECT` <- gsub("&", " & ", all_muts$`EFF[*].EFFECT`)
 
-all_muts <- all_muts |> filter(`EFF[*].AA` != ".") |> rowwise() |> mutate(`Ref > Alt` = paste0(REF, " > ", ALT), Effect = `EFF[*].EFFECT`, Gene = `ANN[*].GENE`, Frequency = gsub(",", ", ", gsub("lofreq:|freebayes:|ivar:", "", `AF[*]`)), Depth = gsub(",", ", ", gsub("lofreq:|freebayes:|ivar:", "", `DP[*]`)), `Variant Callers` = gsub(",", ", ", detected_by)) |> select(POS, `Ref > Alt`, Gene, AA_change, Effect, Frequency, Depth, `Variant Callers`) |> arrange(POS)
+# Round any numeric values in a ", "-delimited string to `digits` dp, leaving
+# non-numeric tokens (e.g. ".") untouched.
+round_csv_numbers <- function(x, digits = 2) {
+  vapply(as.character(x), function(v) {
+    parts <- trimws(strsplit(v, ",")[[1]])
+    num <- suppressWarnings(as.numeric(parts))
+    ok <- !is.na(num)
+    parts[ok] <- as.character(round(num[ok], digits))
+    paste(parts, collapse = ", ")
+  }, character(1), USE.NAMES = FALSE)
+}
+
+all_muts <- all_muts |> filter(`EFF[*].AA` != ".") |> rowwise() |> mutate(`Ref > Alt` = paste0(REF, " > ", ALT), Effect = `EFF[*].EFFECT`, Gene = `ANN[*].GENE`, Frequency = round_csv_numbers(gsub(",", ", ", gsub("lofreq:|freebayes:|ivar:", "", `AF[*]`))), Depth = round_csv_numbers(gsub(",", ", ", gsub("lofreq:|freebayes:|ivar:", "", `DP[*]`))), `Variant Callers` = gsub(",", ", ", detected_by)) |> select(POS, `Ref > Alt`, Gene, AA_change, Effect, Frequency, Depth, `Variant Callers`) |> arrange(POS)
 
 # FASTA consensus input has no per-variant depth or frequency, and the single
 # "sanger" pseudo-caller column adds nothing - drop those columns.
@@ -663,6 +675,7 @@ plot_gene_coverage <- function(bam,
     geom_rect(
       data = bed,
       inherit.aes = FALSE,
+      alpha = 0.3,
       aes(
         xmin = xmin,
         xmax = xmax,
@@ -1048,7 +1061,7 @@ if(nrow(resis_df)==0){
 
 `r if(nrow(resis_df)!=0) "# Key Mutations Characterised in the Literature" else ""`
 
-`r if(nrow(resis_df)!=0) "Selected detected mutations with phenotypic data reported in peer-reviewed studies. EC50 fold-change ratios relative to wild-type are summarised; full per-publication data and variant-caller details are retained in the pipeline output directory." else ""`
+`r if(nrow(resis_df)!=0) "Selected detected mutations with phenotypic data reported in peer-reviewed studies. The EC50 fold-change ratio relative to wild-type, level of resistance and supporting references are shown for each mutation/drug combination." else ""`
 
 ```{r key_mut_table}
 if(nrow(resis_df)!=0){
@@ -1077,6 +1090,7 @@ if(nrow(all_muts)==0){
   cat("No variants of unknown significance were detected.")
 } else {
   all_muts <- all_muts |> gt() |>
+    cols_align(align = "center", columns = everything()) |>
     tab_options(
       table.font.size = if (!knitr::is_html_output()) "8pt" else "100%"
     )
@@ -1117,6 +1131,7 @@ if (!is_fasta) plot
 if(!is_fasta){
   if(nrow(insufficient) > 0){
     coverage_summary |> arrange(desc(`Codons below threshold`)) |> gt() |>
+      cols_align(align = "center", columns = `Codons below threshold`) |>
       tab_options(
         table.font.size = if (!knitr::is_html_output()) "8pt" else "100%"
       )
@@ -1148,7 +1163,7 @@ The database used to generate this report was **`r params$database_name`** versi
 
 ***The results in this report are for research use only and should not be used to inform clinical practice.*** 
 
-***This report only contains a summary of the results, the complete per-publication EC50 data, full coverage tables and variant-caller metrics are available in the pipeline output directory and should be reviewed alongside this report.***
+***This report only contains a summary of the results. Full coverage tables and variant-caller metrics are available in the pipeline output directory and should be reviewed alongside this report.***
 
 `r if(nrow(resis_df)!=0) "# References" else ""`
 

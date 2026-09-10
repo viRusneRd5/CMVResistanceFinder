@@ -506,5 +506,5 @@ if(nrow(resistance_df)==0){
 
 ***The results in this report are for research use only and should not be used to inform clinical practice.*** 
 
-***This report only contains a summary of the results, the complete per-publication EC50 data, full coverage tables and variant-caller metrics are available in the pipeline output directory and should be reviewed alongside this report.***
+***This report only contains a summary of the results. Full coverage tables and variant-caller metrics are available in the pipeline output directory and should be reviewed alongside this report.***
 
