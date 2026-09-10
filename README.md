@@ -1,4 +1,4 @@
-# viRusneRd5/cmvresistancefinder
+# CMVResistanceFinder
 
 [![Open in GitHub Codespaces](https://img.shields.io/badge/Open_In_GitHub_Codespaces-black?labelColor=grey&logo=github)](https://github.com/codespaces/new/viRusneRd5/cmvresistancefinder)
 [![GitHub Actions CI Status](https://github.com/viRusneRd5/cmvresistancefinder/actions/workflows/nf-test.yml/badge.svg)](https://github.com/viRusneRd5/cmvresistancefinder/actions/workflows/nf-test.yml)
@@ -12,7 +12,7 @@
 
 ## Introduction
 
-**viRusneRd5/cmvresistancefinder** is a bioinformatics pipeline that identifies CMV antiviral-resistance mutations and compares them to a database of known clinically relevant mutations. It can start from sequencing reads (`--input_type short-read` or `long-read`, aligned and variant-called) or from an already-assembled per-gene consensus (`--input_type fasta`, e.g. Sanger sequencing, aligned to the reference and diffed). **This pipeline is for research use only and should not be used for informing clinical practice.**
+**CMVResistanceFinder** is a bioinformatics pipeline that identifies CMV antiviral-resistance mutations and compares them to a database of known clinically relevant mutations. It can start from sequencing reads (`--input_type short-read` or `long-read`, aligned and variant-called) or from an already-assembled per-gene consensus (`--input_type fasta`, e.g. Sanger sequencing, aligned to the reference and diffed). **This pipeline is for research use only and should not be used for informing clinical practice.**
 
 <!-- TODO nf-core: Include a figure that guides the user through the major workflow steps. Many nf-core
      workflows use the "tube map" design for that. See https://nf-co.re/docs/community/brand/workflow-schematics#examples for examples.   -->
@@ -106,9 +106,9 @@ This pipeline is still a work in progress and any feedback or suggestions are we
 
 ## Credits
 
-viRusneRd5/cmvresistancefinder was originally written by Jocelyn Hume.
+CMVResistanceFinder was originally written by Jocelyn Hume.
 
-We thank the following people for their extensive assistance in the development of this pipeline:
+We thank the following people for their assistance in the development of this pipeline:
 
 Dr Emma Sweeney - the University of Queensland
 
