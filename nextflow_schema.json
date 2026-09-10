@@ -52,8 +52,8 @@
                         "amplicon",
                         "wgs"
                     ],
-                    "description": "Sequencing protocol used to generate the reads.",
-                    "help_text": "`amplicon` restricts variant calling and reporting to the six CMV resistance genes; `wgs` is intended for whole-genome data (WGS support is still a work in progress).",
+                    "description": "How much of the genome to assess: 'amplicon' (the six resistance genes) or 'wgs' (whole genome).",
+                    "help_text": "'amplicon' restricts FreeBayes/LoFreq calling and all report sections to the six CMV resistance genes (faster). 'wgs' runs all callers across the whole genome and shows genome-wide variants plus a whole-genome coverage plot. Either can be used regardless of how the sample was prepared.",
                     "fa_icon": "fas fa-vial"
                 },
                 "run_name": {

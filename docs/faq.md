@@ -19,7 +19,12 @@ The second bed file (`ch_resis_mut_bed` or `assets/resistance_sites.bed`) descri
 
 **What is the difference between *amplicon* and *wgs* protocol?**
 
-This primary purpose of this pipeline is to identify mutations in the six genes associated with antiviral resistance and provide characterisation data to contextualise mutations where available. However, I do know that people may want to perform whole genome sequencing and get variants across all CDS and look at coverage across the genome. For this reason, I made the pipeline with two protocols. The amplicon protocol is not exclusively for use on amplicon sequencing data, this protocol can be used on whole genome sequencing data. The only difference between these protocols is that the reports will only output variants and coverage data from the six resistance genes, ignoring variants elsewhere in the genome and making analysis slightly faster. The wgs protocol can also be used on amplicon sequencing data, and could prove useful to identify non-specific amplification, but this analysis will take a little longer.
+The primary purpose of this pipeline is to identify mutations in the six genes associated with antiviral resistance, and provide characterisation data to contextualise them where available. However, some people will do whole-genome sequencing and want variants and coverage across the whole genome, so there are two protocols.
+
+- **`amplicon`** (default): FreeBayes and LoFreq only call variants within the six resistance genes, and the reports only show variants and coverage for those genes. Faster, and appropriate whichever way the sample was prepared - most whole-genome runs still only need the resistance genes assessed.
+- **`wgs`**: all three callers run across the whole genome, and the reports show genome-wide variants and a whole-genome coverage plot. Slower. Useful on whole-genome data, or on amplicon data to check for non-specific amplification.
+
+`amplicon` can be used on whole-genome data and `wgs` can be used on amplicon data - the choice only controls how much of the genome is looked at, not how the reads were generated.
 
 **Why doesn't the pipeline remove duplicate reads using picard?**
 

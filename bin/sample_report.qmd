@@ -796,8 +796,8 @@ if(protocol == "wgs"){
   depth_df <- depth_df |> rowwise() |> mutate(log_depth = ifelse(log_depth == -Inf, 0, log_depth))
   gene_df <- data.frame(
     gene = c("UL27", "UL51", "UL54", "UL56", "UL89_B", "UL97"),
-    start = c(as.numeric(unlist(str_split(ul27_pos, "-"))[1]), as.numeric(unlist(str_split(ul51_pos, "-"))[1]), as.numeric(unlist(str_split(ul54_pos, "-"))[1]), as.numeric(unlist(str_split(ul56_pos, "-"))[1]), as.numeric(unlist(str_split(ul89_pos, "-"))[1]), as.numeric(unlist(str_split(ul97_pos, "-"))[1])),
-    end   = c(as.numeric(unlist(str_split(ul27_pos, "-"))[2]), as.numeric(unlist(str_split(ul51_pos, "-"))[2]), as.numeric(unlist(str_split(ul54_pos, "-"))[2]), as.numeric(unlist(str_split(ul56_pos, "-"))[2]), as.numeric(unlist(str_split(ul89_pos, "-"))[2]), as.numeric(unlist(str_split(ul97_pos, "-"))[2]))
+    start = c(as.numeric(unlist(str_split(ul27_pos, "-"))[1]), as.numeric(unlist(str_split(ul51_pos, "-"))[1]), as.numeric(unlist(str_split(ul54_pos, "-"))[1]), as.numeric(unlist(str_split(ul56_pos, "-"))[1]), as.numeric(unlist(str_split(ul89_b_pos, "-"))[1]), as.numeric(unlist(str_split(ul97_pos, "-"))[1])),
+    end   = c(as.numeric(unlist(str_split(ul27_pos, "-"))[2]), as.numeric(unlist(str_split(ul51_pos, "-"))[2]), as.numeric(unlist(str_split(ul54_pos, "-"))[2]), as.numeric(unlist(str_split(ul56_pos, "-"))[2]), as.numeric(unlist(str_split(ul89_b_pos, "-"))[2]), as.numeric(unlist(str_split(ul97_pos, "-"))[2]))
   )
 
   gene_df$midpoint <- (gene_df$start + gene_df$end) / 2
