@@ -15,7 +15,7 @@ NC_006273.2	141798	143921	UL97
 ```
 If you are not using the merlin reference sequence NC_006273.2, then this will need to match the header name and start and end locations of the genes for your selected reference sequence.
 
-The second bed file (`ch_resis_mut_bed` or `assets/resistance_sites.bed`) describes the start and end locations of known CMV antiviral resistant mutations. This is only used in the quarto report file to list and plot the locations with insufficient sequencing depth to call a mutation. This file must be recreated if you are not using the merlin reference sequence NC_006273.2 or if the phenotyping_database is updated.
+The second bed file (`ch_resis_mut_bed` or `assets/resistance_sites.bed`) describes the start and end locations of known CMV antiviral resistant mutations. This is only used in the quarto report file to list and plot the locations with insufficient sequencing depth to call a mutation. This file must be recreated if you are not using the merlin reference sequence NC_006273.2 or if the phenotype database (`--cmv_resis_db`) is updated. When you run with a non-default reference the pipeline regenerates it for you from the database and GFF.
 
 **What is the difference between *amplicon* and *wgs* protocol?**
 
@@ -23,11 +23,23 @@ This primary purpose of this pipeline is to identify mutations in the six genes 
 
 **Why doesn't the pipeline remove duplicate reads using picard?**
 
-Sequencing CMV usually requires enrichment, whether this is probe hybridisation with PCR or just PCR. This means we need to duplicate the reads to be able to detect it with sequencing, especially when dealing with host DNA as well. Yes, we are assuming that all reads are amplified equally to get accurate variant frequencies, but if we were to remove duplicates, we may inadvertantly enhance minority variants and overstate their importance.
+Picard `MarkDuplicates` identifies duplicates by fragment start/end coordinates. In amplicon data every read from an amplicon shares the same coordinates by design, so Picard would flag almost the whole amplicon as duplicate and collapse it to a single read, destroying the depth we need for variant calling.
+
+Removing genuine PCR duplicates from amplicon data requires unique molecular identifiers (UMIs), which this assay doesn't use. Without them the pipeline assumes that alleles are amplified roughly equally, which is the assumption behind treating read counts as variant frequencies. One consequence is that a PCR error introduced in an early cycle is copied into many reads and can appear as a stable low-frequency variant - another reason to interpret calls near the frequency threshold with caution.
+
+(For hybridisation-capture whole-genome data, where fragmentation is random and duplicates behave normally, deduplication would be appropriate. The `wgs` protocol does not currently do this.)
 
 **Why is the default threshold's minimum 40 read depth, read quality 20, 0.05 (5%) variant frequency etc.?**
 
-I don't really have a good reason for you. We want good quality reads so we can be more confident in the variants we are calling. 40 seemed like a good depth threshold for decent confidence in a variant and less than 5% frequency is likely not clinically relevant, so this is what I set. If you need to adjust the depth or variant frequency thresholds, you can change these parameters in the command line when you run the pipeline, or make a custom parameter/config file. I haven't added in the parameter to adjust the read quality, but if people ask for it, I might be able to.
+These are pragmatic defaults rather than values from a formal analysis.
+
+**5% variant frequency** is a reporting threshold near the lower end of what's commonly used for CMV NGS resistance testing; there is no field consensus. Note that at 40x a 5% call is supported by only ~2 reads, so treat near-threshold, low-depth calls with caution - and be aware that low-frequency resistant variants can still be clinically significant, as they can expand under drug selection.
+
+**40x depth** gives reasonable confidence for majority variant calls. **Base quality 20** (≈1% error) was also set pragmatically, as a permissive floor; a stricter value such as 30 would give more confidence in low-frequency calls but is not currently exposed as a parameter.
+
+**Minimum mapping quality** is currently left at each caller's default (FreeBayes 1; LoFreq and the samtools mpileup step feeding iVar, 0), i.e. effectively no mapping-quality filter. The six resistance genes sit in the unique-long region of the genome rather than in CMV's repeat regions, so mismapping there is unlikely, but a mapping-quality filter would still be a reasonable addition.
+
+You can change `--min_depth` and `--min_freq` on the command line or in a params/config file.
 
 
 **What do I need to provide if I want to run this pipeline with my own reference sequence?**
@@ -65,7 +77,7 @@ nextflow run viRusneRd5/cmvresistancefinder \
 
 **Can I run this pipeline with a fasta file input from Sanger sequencing?**
 
-If the demand is high enough, I might be able to make this work, but currently this is not possible.
+Yes. Run with `--input_type fasta` and give a two-column samplesheet (`sample,fasta`) where each `fasta` is one multi-record FASTA per sample, with one record per resistance gene and the gene name at the start of each header (e.g. `>UL54`). Each record is aligned to the reference and diffed; read-processing steps are skipped and the reports drop the coverage sections in favour of a "regions assessed" table. See the [usage docs](usage.md#samplesheet-input-fasta--sanger-consensus) for the full format and the FASTA-specific options.
 
 **What if I want to provide my own database?**
 
@@ -77,4 +89,8 @@ This depends on how large your fastq files are, and whether you are running this
 
 **Why doesn't this pipeline perform primer trimming using IVAR trim?**
 
-I looked into this option originally, considering my first focus was amplicon sequencing analysis, however I found that this removed too many reads and considerably dropped my sequencing coverage. My amplicon assay was designed outside of any regions containing AMR mutations and so it was decided not to include IVAR trim in the pipeline.
+This pipeline is meant to be usable across many sequencing assays - different amplicon panels, hybridisation capture, whole genome - without asking each user to supply an assay-specific primer BED file and tune trimming settings. `ivar trim` needs exactly that, so it isn't built in.
+
+For our own amplicon assay this is also fine scientifically: the primers were designed so that no primer-binding site overlaps (or sits within a read length of) a codon that is interrogated for resistance. Primer-derived sequence therefore can't mask a resistance variant or bias its allele frequency, because the reads covering a resistance codon are always template-derived.
+
+If your primer scheme does place primers within a read length of a resistance codon, trim them externally (e.g. `ivar trim`, `samtools ampliconclip`, fgbio) before running this pipeline - note that this workflow has not been tested on externally primer-trimmed input.
