@@ -24,6 +24,16 @@ lint:
     - .github/ISSUE_TEMPLATE/config.yml
     - .github/workflows/awstest.yml
     - .github/workflows/awsfulltest.yml
+    # not an nf-core repo - no dev->master branch protection
+    - .github/workflows/branch.yml
+    # this pipeline does not send completion emails
+    - assets/email_template.html
+    - assets/email_template.txt
+    - assets/sendmail_template.txt
+  # the phenotype database bibtex uses double braces to protect capitalisation,
+  # which the template-string check mistakes for Jinja
+  template_strings:
+    - assets/cmv_resis_db_bibliography.bib
 
 template:
   org: viRusneRd5
