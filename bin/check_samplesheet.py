@@ -31,6 +31,7 @@ class RowChecker:
         first_col="fastq_1",
         second_col="fastq_2",
         single_col="single_end",
+        base_dir=None,
         **kwargs,
     ):
         """
@@ -53,6 +54,7 @@ class RowChecker:
         self._first_col = first_col
         self._second_col = second_col
         self._single_col = single_col
+        self._base_dir = Path(base_dir) if base_dir else None
         self._seen = set()
         self.modified = []
 
@@ -66,11 +68,22 @@ class RowChecker:
 
         """
         self._validate_sample(row)
+        self._resolve_paths(row)
         self._validate_first(row)
         self._validate_second(row)
         self._validate_pair(row)
         self._seen.add((row[self._sample_col], row[self._first_col]))
         self.modified.append(row)
+
+    def _resolve_paths(self, row):
+        """Make relative FASTQ paths absolute, relative to the samplesheet's own
+        directory (Nextflow otherwise resolves them against the launch dir)."""
+        if self._base_dir is None:
+            return
+        for col in (self._first_col, self._second_col):
+            value = row.get(col) or ""
+            if value and "://" not in value and not Path(value).is_absolute():
+                row[col] = str((self._base_dir / value).resolve())
 
     def _validate_sample(self, row):
         """Assert that the sample name exists and convert spaces to underscores."""
@@ -193,8 +206,9 @@ def check_samplesheet(file_in, file_out):
             req_cols = ", ".join(required_columns)
             logger.critical(f"The sample sheet **must** contain these column headers: {req_cols}.")
             sys.exit(1)
-        # Validate each row.
-        checker = RowChecker()
+        # Validate each row. Resolve relative FASTQ paths against the real
+        # samplesheet directory (file_in is Nextflow's staged symlink).
+        checker = RowChecker(base_dir=file_in.resolve().parent)
         for i, row in enumerate(reader):
             try:
                 checker.validate_and_transform(row)
