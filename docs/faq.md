@@ -37,9 +37,9 @@ These are pragmatic defaults rather than values from a formal analysis.
 
 **40x depth** gives reasonable confidence for majority variant calls. **Base quality 20** (≈1% error) was also set pragmatically, as a permissive floor; a stricter value such as 30 would give more confidence in low-frequency calls but is not currently exposed as a parameter.
 
-**Minimum mapping quality** is currently left at each caller's default (FreeBayes 1; LoFreq and the samtools mpileup step feeding iVar, 0), i.e. effectively no mapping-quality filter. The six resistance genes sit in the unique-long region of the genome rather than in CMV's repeat regions, so mismapping there is unlikely, but a mapping-quality filter would still be a reasonable addition.
+**Minimum mapping quality** (`--min_mapq`) defaults to 20 and is passed to all three callers, so reads that aligned ambiguously are dropped before calling. The six resistance genes sit in the unique-long region of the genome rather than in CMV's repeat regions, so this has little effect on coverage there; set `--min_mapq 0` to disable it.
 
-You can change `--min_depth` and `--min_freq` on the command line or in a params/config file.
+You can change `--min_depth`, `--min_freq` and `--min_mapq` on the command line or in a params/config file.
 
 
 **What do I need to provide if I want to run this pipeline with my own reference sequence?**

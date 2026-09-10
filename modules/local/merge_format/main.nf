@@ -10,7 +10,6 @@ process MERGE_FORMAT {
     input:
     tuple val(meta), path(vcfs) // channel combining all vcf files for each sample
     path(cmv_resis_db)
-    val(min_freq)
 
     output:
     tuple val(meta), path("*.merged.tsv"), emit: merged
@@ -28,7 +27,6 @@ process MERGE_FORMAT {
     """
     combine_snpsift_output.py \\
         --sample $prefix \\
-        --min_freq ${min_freq} \\
         --output ${prefix}.merged.tsv \\
         ${vcfs.join(' ')}
 
