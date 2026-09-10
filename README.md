@@ -41,9 +41,23 @@ Both:
 > If you are new to Nextflow and nf-core, please refer to [this page](https://nf-co.re/docs/get_started/environment_setup/overview) on how to set-up Nextflow. Make sure to [test your setup](https://nf-co.re/docs/get_started/run-your-first-pipeline) with `-profile test,conda_singularity` before running the workflow on actual data.
 
 > [!IMPORTANT]
-> This pipeline currently needs **both Conda and a container engine** available on the machine that runs it, and is run with `-profile conda_singularity` (or `conda_docker`). Most tools run from containers, but a few steps (the Quarto reports) do not yet have a usable container and fall back to Conda. We hope to make it run on either engine alone in a future update.
+> This pipeline currently needs **both Conda and a container engine** (Singularity or Docker) available on the machine that runs it, and is run with `-profile conda_singularity` (or `conda_docker`). Most tools run from containers, but a few steps (the Quarto reports) do not yet have a usable container and fall back to Conda. We hope to make it run on either engine alone in a future update.
 
+This section is a quick start. See [docs/usage.md](docs/usage.md) for input types, the full parameter list, profiles and troubleshooting.
 
+### Test the installation
+
+Before running on your own data, check that Nextflow, Conda and your container engine work together using the bundled test dataset — a small simulated CMV amplicon dataset with known spiked-in resistance mutations:
+
+```bash
+nextflow run viRusneRd5/cmvresistancefinder \
+   -profile test,conda_singularity \
+   --outdir <TEST_OUTDIR>
+```
+
+This runs the whole workflow end to end and needs no reference downloads (host removal and Kraken2 are skipped). The per-sample report written to `<TEST_OUTDIR>/report_files/` should list the six spiked mutations: UL97 A594V, UL54 A809V, UL27 DEL218, UL51 P91S, UL56 C25F and UL89 N329S. Swap `conda_singularity` for `conda_docker` to test a Docker setup.
+
+### Running on your own data
 
 First, prepare a samplesheet with your input data that looks as follows:
 
@@ -53,40 +67,14 @@ First, prepare a samplesheet with your input data that looks as follows:
 sample,fastq_1,fastq_2
 CONTROL_REP1,AEG588A1_S1_L002_R1_001.fastq.gz,AEG588A1_S1_L002_R2_001.fastq.gz
 ```
-Each row represents a fastq file (single-end) or a pair of fastq files (paired end).
 
-The `bin/create_samplesheet.py` script can help you make the samplesheet from fastq files within a directory. You can run this script as follows:
-
-```
-python create_samplesheet.py /path/to/fastq_dir samplesheet.csv
-```
+Each row is a single fastq file (single-end) or a pair of fastq files (paired-end). The `bin/create_samplesheet.py` helper builds one from a directory of fastq files: `python bin/create_samplesheet.py /path/to/fastq_dir samplesheet.csv`.
 
 To start from a per-gene consensus instead (e.g. Sanger sequencing), add `--input_type fasta` and use a two-column samplesheet (`sample,fasta`) where each `fasta` is one multi-record FASTA per sample, one record per resistance gene with the gene name at the start of the header. See [docs/usage.md](docs/usage.md#samplesheet-input-fasta--sanger-consensus).
 
-*Hostile Reference*
+Host-read removal ([`Hostile`](https://github.com/bede/hostile)) and taxonomic classification ([`Kraken2`](https://ccb.jhu.edu/software/kraken2/)) each need a database downloaded once — see the [`--hostile_reference_path`](docs/usage.md#--hostile_reference_path) and [`--kraken2_db`](docs/usage.md#--kraken2_db) sections of `docs/usage.md` for the download commands. To skip either step, pass `--skip_host_removal` and/or `--skip_kraken2` instead of the corresponding path.
 
-If you want to perform host-removal, you will need to download the hostile reference and index using bowtie2 build, as per below:
-
-```bash
-wget https://objectstorage.uk-london-1.oraclecloud.com/n/lrbvkel2wjot/b/human-genome-bucket/o/human-t2t-hla.fa.gz
-
-bowtie2-build /path/to/hostile_reference/human-t2t-hla.fa.gz /path/to/hostile_reference/hostile_bowtie_index
-```
-If you do not wish to perform host-removal, add `--skip_host_removal true` in place of `--hostile_reference_path </path/to/hostile_reference>` below.
-
-*Kraken2 database*
-
-If you wish to run Kraken2 to perform taxonomic classification on your reads prior to alignment to the reference, you will need to download the Kraken2 viral database. You can you this by:
-
-```bash
-wget https://genome-idx.s3.amazonaws.com/kraken/k2_viral_20260226.tar.gz
-tar -xzvf /path/to/kraken_database/k2_viral_20260226.tar.gz
-```
-If you do not wish to perform kraken2 classification, add `--skip_kraken2 true` in place of `--kraken2_db </path/to/kraken2_virus_db>` below.
-
-You can also use the Kraken2 standard database (up to date datases [found here](https://benlangmead.github.io/aws-indexes/k2)), but this database is larger and may take longer to run. Note that the pluspf database will not identify viruses, so should not be used here.
-
-Now, you can run the pipeline using:
+Then run the pipeline using:
 
 ```bash
 nextflow run viRusneRd5/cmvresistancefinder \
@@ -95,10 +83,11 @@ nextflow run viRusneRd5/cmvresistancefinder \
    --outdir <OUTDIR> \
    --protocol amplicon \
    --hostile_reference_path <path/to/hostile_reference> \
-   --kraken2_db <path/to/kraken2_virus_db \
+   --kraken2_db <path/to/kraken2_virus_db> \
    --report_author <your_name/institute> \
    --run_name <run_name>
 ```
+
 > [!WARNING]
 > Please provide pipeline parameters via the CLI or Nextflow `-params-file` option. Custom config files including those provided by the `-c` Nextflow option can be used to provide any configuration _**except for parameters**_; see [docs](https://nf-co.re/docs/running/run-pipelines#using-parameter-files).
 
