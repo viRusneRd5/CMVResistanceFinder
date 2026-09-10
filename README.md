@@ -2,27 +2,38 @@
 
 [![Open in GitHub Codespaces](https://img.shields.io/badge/Open_In_GitHub_Codespaces-black?labelColor=grey&logo=github)](https://github.com/codespaces/new/viRusneRd5/cmvresistancefinder)
 [![GitHub Actions CI Status](https://github.com/viRusneRd5/cmvresistancefinder/actions/workflows/nf-test.yml/badge.svg)](https://github.com/viRusneRd5/cmvresistancefinder/actions/workflows/nf-test.yml)
-[![GitHub Actions Linting Status](https://github.com/viRusneRd5/cmvresistancefinder/actions/workflows/linting.yml/badge.svg)](https://github.com/viRusneRd5/cmvresistancefinder/actions/workflows/linting.yml)[![Cite with Zenodo](http://img.shields.io/badge/DOI-10.5281/zenodo.XXXXXXX-1073c8?labelColor=000000)](https://doi.org/10.5281/zenodo.XXXXXXX)
+[![GitHub Actions Linting Status](https://github.com/viRusneRd5/cmvresistancefinder/actions/workflows/linting.yml/badge.svg)](https://github.com/viRusneRd5/cmvresistancefinder/actions/workflows/linting.yml)
 [![nf-test](https://img.shields.io/badge/unit_tests-nf--test-337ab7.svg)](https://www.nf-test.com)
 
 [![Nextflow](https://img.shields.io/badge/version-%E2%89%A525.10.4-green?style=flat&logo=nextflow&logoColor=white&color=%230DC09D&link=https%3A%2F%2Fnextflow.io)](https://www.nextflow.io/)
 [![nf-core template version](https://img.shields.io/badge/nf--core_template-4.0.2-green?style=flat&logo=nfcore&logoColor=white&color=%2324B064&link=https%3A%2F%2Fnf-co.re)](https://github.com/nf-core/tools/releases/tag/4.0.2)
 [![run with conda](http://img.shields.io/badge/run%20with-conda-3EB049?labelColor=000000&logo=anaconda)](https://docs.conda.io/en/latest/)
-[![run with docker](https://img.shields.io/badge/run%20with-docker-0db7ed?labelColor=000000&logo=docker)](https://www.docker.com/)
 [![run with singularity](https://img.shields.io/badge/run%20with-singularity-1d355c.svg?labelColor=000000)](https://sylabs.io/docs/)
-[![Launch on Seqera Platform](https://img.shields.io/badge/Launch%20%F0%9F%9A%80-Seqera%20Platform-%234256e7)](https://cloud.seqera.io/launch?pipeline=https://github.com/viRusneRd5/cmvresistancefinder)
 
 ## Introduction
 
 **viRusneRd5/cmvresistancefinder** is a bioinformatics pipeline that identifies CMV antiviral-resistance mutations and compares them to a database of known clinically relevant mutations. It can start from sequencing reads (`--input_type short-read` or `long-read`, aligned and variant-called) or from an already-assembled per-gene consensus (`--input_type fasta`, e.g. Sanger sequencing, aligned to the reference and diffed). **This pipeline is for research use only and should not be used for informing clinical practice.**
 
-<!-- TODO nf-core:
-   Complete this sentence with a 2-3 sentence summary of what types of data the pipeline ingests, a brief overview of the major pipeline sections and the types of output it produces. You're giving an overview to someone new to nf-core here, in 15-20 seconds. For an example, see https://github.com/nf-core/rnaseq/blob/master/README.md#introduction
--->
-
 <!-- TODO nf-core: Include a figure that guides the user through the major workflow steps. Many nf-core
      workflows use the "tube map" design for that. See https://nf-co.re/docs/community/brand/workflow-schematics#examples for examples.   -->
-<!-- TODO nf-core: Fill in short bullet-pointed list of the default steps in the pipeline -->1. Read QC ([`FastQC`](https://www.bioinformatics.babraham.ac.uk/projects/fastqc/))2. Present QC for raw reads ([`MultiQC`](http://multiqc.info/))
+
+Read input:
+
+1. Read QC ([`FastQC`](https://www.bioinformatics.babraham.ac.uk/projects/fastqc/))
+2. Adapter/quality trimming ([`fastp`](https://github.com/OpenGene/fastp), [`Trimmomatic`](http://www.usadellab.org/cms/?page=trimmomatic) or, for long reads, [`fastplong`](https://github.com/OpenGene/fastplong))
+3. Optional host-read removal ([`Hostile`](https://github.com/bede/hostile)) and taxonomic classification ([`Kraken2`](https://ccb.jhu.edu/software/kraken2/))
+4. Alignment to the CMV reference ([`minimap2`](https://github.com/lh3/minimap2), [`Bowtie2`](https://bowtie-bio.sourceforge.net/bowtie2/) or [`BWA-MEM3`](https://github.com/bwa-mem2/bwa-mem2))
+5. Variant calling with one or more of [`iVar`](https://andersen-lab.github.io/ivar/html/), [`FreeBayes`](https://github.com/freebayes/freebayes) and [`LoFreq`](https://csb5.github.io/lofreq/)
+
+FASTA (consensus) input:
+
+1. Align each per-gene consensus record to its reference gene region and call the differences (`bin/fasta_consensus_variants.py`, [`Biopython`](https://biopython.org/))
+
+Both:
+
+2. Annotate variants ([`SnpEff`](https://pcingola.github.io/SnpEff/) / [`SnpSift`](https://pcingola.github.io/SnpEff/snpsift/introduction/)) and match against the phenotype database
+3. Per-sample and per-run resistance reports ([`Quarto`](https://quarto.org/), HTML + PDF)
+4. Aggregate QC report ([`MultiQC`](http://multiqc.info/))
 
 ## Usage
 
@@ -77,8 +88,6 @@ You can also use the Kraken2 standard database (up to date datases [found here](
 
 Now, you can run the pipeline using:
 
-<!-- TODO nf-core: update the following command to include all required parameters for a minimal example -->
-
 ```bash
 nextflow run viRusneRd5/cmvresistancefinder \
    -profile conda_singularity \
@@ -104,7 +113,6 @@ We thank the following people for their extensive assistance in the development 
 Dr Emma Sweeney - the University of Queensland
 
 Dr Kym Lowry - the University of Queensland
-<!-- TODO nf-core: If applicable, make list of people who have also contributed -->
 
 ## Contributions and Support
 
