@@ -54,6 +54,25 @@ def convert_aa(hgvs):
         return f"DEL{pos}"
 
     # -------------------------
+    # In-frame deletion (SnpEff HGVS.p)
+    # Leu218del          -> DEL218
+    # Leu218_Ala221del   -> DEL218-221
+    # -------------------------
+    m = re.fullmatch(r"[A-Z][a-z]{2}(\d+)(?:_[A-Z][a-z]{2}(\d+))?del", hgvs)
+    if m:
+        start, end = m.groups()
+        return f"DEL{start}" if end is None else f"DEL{start}-{end}"
+
+    # -------------------------
+    # In-frame insertion / duplication
+    # Ala218_Leu219insXxx -> INS218
+    # Ala218dup           -> INS218
+    # -------------------------
+    m = re.fullmatch(r"[A-Z][a-z]{2}(\d+)(?:_[A-Z][a-z]{2}\d+)?(?:ins|dup).*", hgvs)
+    if m:
+        return f"INS{m.group(1)}"
+
+    # -------------------------
     # Two amino acid substitution
     # AspLeu981GlyVal -> D981G/L982V
     # -------------------------

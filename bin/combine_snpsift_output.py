@@ -35,7 +35,9 @@ args = parser.parse_args()
 
 sampleID = args.sample
 output_file = args.output
-input_files = args.files
+# sort so the per-caller columns (detected_by, DP[*], AF[*]) come out in a
+# stable order regardless of how Nextflow ordered the input files
+input_files = sorted(args.files)
 
 # ------------------------------------------------------------------
 # Read and process files
@@ -221,7 +223,7 @@ def collapse_caller_values(group, value_col):
 
 # Standard aggregation
 agg_dict = {
-    "variant_caller": lambda x: ",".join(pd.unique(x))
+    "variant_caller": lambda x: ",".join(sorted(pd.unique(x)))
 }
 
 for col in combined.columns:

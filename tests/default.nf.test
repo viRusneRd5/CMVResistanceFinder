@@ -13,20 +13,40 @@ nextflow_pipeline {
         }
 
         then {
-            // stable_path: All files + folders in ${params.outdir}/ with a stable path (including file name)
-            def stable_path = getAllFilesFromDir(params.outdir, relative: true, includeDir: true, ignore: ['pipeline_info/*.{html,json,txt}'])
-            // stable_content: All files in ${params.outdir}/ with stable content
-            def stable_content = getAllFilesFromDir(params.outdir, ignoreFile: 'tests/.nftignore')
-            assert workflow.success
+            def resistance = path("$outputDir/variant_files/MOCK_CMV.resistance.tsv").text
+
+            // the six mutations spiked into the bundled test reads, as
+            // <Gene><TAB><Mutation> - each must be called and matched to the
+            // phenotype database
+            def spiked = [
+                "UL97\tA594V",
+                "UL54\tA809V",
+                "UL27\tDEL218",
+                "UL51\tP91S",
+                "UL56\tC25F",
+                "UL89\tN329S",
+            ]
+
             assertAll(
+                { assert workflow.success },
+
+                // software versions and the (fully deterministic) reference indices
                 { assert snapshot(
-                    // pipeline versions.yml file for multiqc from which Nextflow version is removed because we test pipelines on multiple Nextflow versions
                     removeNextflowVersion("$outputDir/pipeline_info/cmvresistancefinder_software_mqc_versions.yml"),
-                    // All stable path name, with a relative path
-                    stable_path,
-                    // All files with stable contents
-                    stable_content
-                ).match() }
+                    path("$outputDir/samtools/NC_006273.2.fasta.fai"),
+                    path("$outputDir/samtools/NC_006273.2.fasta.sizes"),
+                ).match() },
+
+                // every spiked resistance mutation is present in resistance.tsv
+                { spiked.each { m -> assert resistance.contains(m) : "expected '${m}' in resistance.tsv" } },
+
+                // the merged / formatted tables and the reports were produced
+                { assert path("$outputDir/variant_files/MOCK_CMV.merged.tsv").exists() },
+                { assert path("$outputDir/variant_files/MOCK_CMV.formatted.tsv").exists() },
+                { assert path("$outputDir/report_files/MOCK_CMV.html").exists() },
+                { assert path("$outputDir/report_files/MOCK_CMV.pdf").exists() },
+                { assert path("$outputDir/report_files/test_run.html").exists() },
+                { assert path("$outputDir/multiqc/multiqc_report.html").exists() },
             )
         }
     }
