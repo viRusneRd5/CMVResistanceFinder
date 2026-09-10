@@ -164,4 +164,6 @@ If you update images or graphics, follow the nf-core [style guidelines](https://
 
 ## Pipeline specific contribution guidelines
 
-<!-- TODO nf-core: Add any pipeline specific contribution guidelines here, such as coding styles, procedures, checklists etc. -->
+- This pipeline is run with a `conda_<engine>` hybrid profile (`conda_singularity` or `conda_docker`); a few steps (the Quarto reports) have no usable container and fall back to Conda. Test changes with `-profile test,conda_singularity`.
+- Run `prek run --all-files` and `nf-core pipelines lint` before opening a PR, and update the nf-test snapshot (`nf-test test --update-snapshot`) when output files legitimately change.
+- Python helpers live in `bin/` and R/Quarto report code in `bin/*.qmd`; keep new parameters wired through `nextflow.config`, `nextflow_schema.json` and `docs/usage.md` together.
