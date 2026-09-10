@@ -206,8 +206,6 @@ If `-profile` is not specified, the pipeline will run locally and expect all sof
   - A minimal test configuration. Use together with `conda_singularity`, i.e. `-profile test,conda_singularity`.
 - `test_fasta`
   - A minimal `--input_type fasta` test configuration (bundled Sanger-consensus fixture). Use together with `conda_singularity`.
-- `test_full`
-  - A full-size test configuration. Use together with `conda_singularity`.
 - `debug`
   - Development aid: keeps the `work` directory, dumps task hashes and enables process-name validation.
 

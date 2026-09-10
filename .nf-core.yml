@@ -27,6 +27,11 @@ lint:
     - .github/ISSUE_TEMPLATE/config.yml
     - .github/workflows/awstest.yml
     - .github/workflows/awsfulltest.yml
+    # this pipeline ships its own CMV reference and does not use nf-core iGenomes
+    - conf/igenomes.config
+    - conf/igenomes_ignored.config
+    # a single bundled test is enough; there is no full-size / AWS megatest
+    - conf/test_full.config
     # not an nf-core repo - no dev->master branch protection
     - .github/workflows/branch.yml
     # this pipeline does not send completion emails
