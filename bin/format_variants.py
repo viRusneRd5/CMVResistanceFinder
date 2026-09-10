@@ -64,10 +64,26 @@ def convert_aa(hgvs):
         return f"DEL{start}" if end is None else f"DEL{start}-{end}"
 
     # -------------------------
-    # In-frame insertion / duplication
-    # Ala218_Leu219insXxx -> INS218
-    # Ala218dup           -> INS218
+    # In-frame insertion / duplication (SnpEff HGVS.p), keeping the inserted
+    # residue(s) so it matches the database's INS<pos>_<residues> notation:
+    #   Ser884dup                            -> INS884_S
+    #   Ala884_Ser885insSer                  -> INS884_S
+    #   Ser1100_Gly1101insLeuThrAlaProGlyVal -> INS1100_LTAPGV
     # -------------------------
+    m = re.fullmatch(r"([A-Z][a-z]{2})(\d+)dup", hgvs)
+    if m:
+        aa3, pos = m.groups()
+        return f"INS{pos}_{AA.get(aa3, aa3)}"
+
+    m = re.fullmatch(r"[A-Z][a-z]{2}(\d+)_[A-Z][a-z]{2}\d+ins((?:[A-Z][a-z]{2})+)", hgvs)
+    if m:
+        pos, inserted = m.groups()
+        residues = "".join(
+            AA.get(inserted[i:i + 3], "?") for i in range(0, len(inserted), 3)
+        )
+        return f"INS{pos}_{residues}"
+
+    # range duplication or an insertion we can't fully resolve - keep the position
     m = re.fullmatch(r"[A-Z][a-z]{2}(\d+)(?:_[A-Z][a-z]{2}\d+)?(?:ins|dup).*", hgvs)
     if m:
         return f"INS{m.group(1)}"
