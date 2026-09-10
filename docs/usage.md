@@ -120,7 +120,7 @@ nextflow run viRusneRd5/cmvresistancefinder \
    --run_name <run_name>
 ```
 
-This launches the pipeline with the `conda_singularity` profile. This pipeline currently needs **both Conda and Apptainer/Singularity**: most tools run from their containers, but a few steps (the Quarto reports) have no usable container yet and fall back to Conda. We hope to support either engine alone in a future update. See below for more about profiles.
+This launches the pipeline with the `conda_singularity` profile. This pipeline currently needs **both Conda and a container engine** (Singularity or Docker): most tools run from their containers, but a few steps (the Quarto reports) have no usable container yet and fall back to Conda. Use `conda_singularity` or `conda_docker`. We hope to support either engine alone in a future update. See below for more about profiles.
 
 Note that the pipeline will create the following files in your working directory:
 
@@ -189,7 +189,7 @@ To further assist in reproducibility, you can use share and reuse [parameter fil
 Use this parameter to choose a configuration profile. Profiles give configuration presets for different compute environments.
 
 > [!IMPORTANT]
-> This pipeline currently requires **both Conda and Apptainer/Singularity** on the machine that runs it. Most tools run from their (Seqera/Wave) containers, but a few steps - the Quarto reports - have no usable published container and fall back to Conda. Until every module has a working container (or every tool a working Conda env) `conda_singularity` is the only supported way to run it. We hope to make it run on either engine alone in a future update.
+> This pipeline currently requires **both Conda and a container engine** on the machine that runs it. Most tools run from their (Seqera/Wave) containers, but a few steps - the Quarto reports - have no usable published container and fall back to Conda. Until every module has a working container (or every tool a working Conda env), run it with a `conda_<engine>` hybrid profile: `conda_singularity` (what CI uses, best tested) or `conda_docker`. We hope to make it run on either engine alone in a future update.
 
 The pipeline also dynamically loads configurations from [https://github.com/nf-core/configs](https://github.com/nf-core/configs) when it runs, making multiple config profiles for various institutional clusters available at run time. For more information and to check if your system is supported, please see the [nf-core/configs documentation](https://github.com/nf-core/configs#documentation).
 
@@ -199,7 +199,9 @@ They are loaded in sequence, so later profiles can overwrite earlier profiles.
 If `-profile` is not specified, the pipeline will run locally and expect all software to be installed and available on the `PATH`. This is _not_ recommended.
 
 - `conda_singularity`
-  - The profile for real runs. Enables both Conda and Singularity (with `singularity.autoMounts`).
+  - The profile for real runs. Enables both Conda and Singularity (with `singularity.autoMounts`). Used by CI.
+- `conda_docker`
+  - As above but with Docker instead of Singularity.
 - `test`
   - A minimal test configuration. Use together with `conda_singularity`, i.e. `-profile test,conda_singularity`.
 - `test_fasta`

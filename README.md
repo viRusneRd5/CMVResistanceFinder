@@ -41,7 +41,7 @@ Both:
 > If you are new to Nextflow and nf-core, please refer to [this page](https://nf-co.re/docs/get_started/environment_setup/overview) on how to set-up Nextflow. Make sure to [test your setup](https://nf-co.re/docs/get_started/run-your-first-pipeline) with `-profile test,conda_singularity` before running the workflow on actual data.
 
 > [!IMPORTANT]
-> This pipeline currently needs **both Conda and Apptainer/Singularity** available on the machine that runs it, and is run with `-profile conda_singularity`. Most tools run from containers, but a few steps (the Quarto reports) do not yet have a usable container and fall back to Conda. We hope to make it run on either engine alone in a future update.
+> This pipeline currently needs **both Conda and a container engine** available on the machine that runs it, and is run with `-profile conda_singularity` (or `conda_docker`). Most tools run from containers, but a few steps (the Quarto reports) do not yet have a usable container and fall back to Conda. We hope to make it run on either engine alone in a future update.
 
 
 
