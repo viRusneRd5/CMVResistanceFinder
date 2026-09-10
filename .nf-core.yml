@@ -16,6 +16,9 @@ lint:
     - manifest.homePage
   multiqc_config:
     - report_comment
+  # this pipeline is not on nf-core/configs, so there is no pipeline-specific
+  # config to include
+  included_configs: false
   files_exist:
     - CODE_OF_CONDUCT.md
     - assets/nf-core-cmvresistancefinder_logo_light.png
