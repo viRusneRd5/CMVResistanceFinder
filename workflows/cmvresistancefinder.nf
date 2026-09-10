@@ -372,12 +372,12 @@ workflow CMVRESISTANCEFINDER {
     // MODULE: Call variants with Freebayes, index, annotate with snpeff and extract with snpsift
     //
     if (params.input_type != 'fasta' && 'freebayes' in selected_callers) {
+        // amplicon: restrict calling to the six resistance genes (faster; the
+        // reports only use those anyway). wgs: call across the whole genome.
         ch_freebayes = ch_sorted_bam.join(ch_sort_bam_index)
-        ch_freebayes = ch_freebayes.combine(ch_genes_bed)
-            .map { meta, bam, bai, bed ->
-                tuple(meta, bam, bai, bed)
-            }
-        //TODO: this will currently only perform variant calling in the six resistance genes because of the bed file. Need to fix so that it will call variants everywhere if protocol is set to wgs.
+        ch_freebayes = params.protocol == 'wgs'
+            ? ch_freebayes.map { meta, bam, bai -> tuple(meta, bam, bai, []) }
+            : ch_freebayes.combine(ch_genes_bed).map { meta, bam, bai, bed -> tuple(meta, bam, bai, bed) }
 
         FREEBAYES (
             ch_freebayes,
@@ -413,11 +413,10 @@ workflow CMVRESISTANCEFINDER {
     // MODULE: Call variants with Lofreq, index, annotate with snpeff and extract with snpsift
     //
     if (params.input_type != 'fasta' && 'lofreq' in selected_callers) {
-        ch_lofreq = ch_sorted_bam.combine(ch_genes_bed)
-            .map { meta, bam, bed ->
-                tuple(meta, bam, bed)
-            }
-        //TODO: this will currently only perform variant calling in the six resistance genes because of the bed file. Need to fix so that it will call variants everywhere if protocol is set to wgs.
+        // amplicon: restrict calling to the six resistance genes. wgs: whole genome.
+        ch_lofreq = params.protocol == 'wgs'
+            ? ch_sorted_bam.map { meta, bam -> tuple(meta, bam, []) }
+            : ch_sorted_bam.combine(ch_genes_bed).map { meta, bam, bed -> tuple(meta, bam, bed) }
         LOFREQ_CALL (
             ch_lofreq,
             params.cmv_ref_fasta
