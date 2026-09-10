@@ -4,7 +4,7 @@
 
 ## Introduction
 
-<!-- TODO nf-core: Add documentation about anything specific to running your pipeline. For general topics, please point to (and add to) the main nf-core website. -->
+This page covers the pipeline-specific options. For general Nextflow / nf-core topics (institutional configs, resource tuning, running offline) see the [nf-core usage docs](https://nf-co.re/docs/usage/introduction).
 
 ## Input types
 
