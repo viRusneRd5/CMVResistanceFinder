@@ -8,16 +8,17 @@
 
 ## Input types
 
-The pipeline can start from either sequencing reads (FASTQ, the default) or an already-assembled per-gene consensus (FASTA, e.g. from Sanger sequencing). Pick one with `--input_type`:
+`--input_type` sets what kind of data the pipeline starts from:
 
 ```bash
---input_type fastq   # (default) short- or long-read FASTQ, aligned and variant-called
---input_type fasta   # per-gene consensus sequence, aligned to the reference and diffed
+--input_type short-read   # (default) Illumina FASTQ - trimmed, host-removed, aligned and variant-called
+--input_type long-read    # Oxford Nanopore FASTQ - forces the minimap2 aligner and fastplong trimming
+--input_type fasta        # per-gene consensus sequence (e.g. Sanger) - aligned to the reference and diffed
 ```
 
-A run is one type only - every row of the samplesheet must be the same type. The samplesheet layout depends on `--input_type` (see below).
+A run is one type only - every row of the samplesheet must be the same type. `short-read` and `long-read` use the same FASTQ samplesheet; `fasta` uses a different one (see below).
 
-## Samplesheet input (FASTQ)
+## Samplesheet input (short-read / long-read)
 
 You will need to create a samplesheet with information about the samples you would like to analyse before running the pipeline. Use this parameter to specify its location. It has to be a comma-separated file with 3 columns, and a header row as shown in the examples below.
 
@@ -222,7 +223,7 @@ Specify the path to a specific config file (this is a core Nextflow command). Se
 
 ### `--input_type`
 
-`fastq` (default) or `fasta`. See [Input types](#input-types).
+`short-read` (default, Illumina), `long-read` (Oxford Nanopore) or `fasta` (Sanger / assembled per-gene consensus). See [Input types](#input-types). `long-read` requires `--aligner minimap2` and trims with fastplong; the long-read path has only been tested on two public samples and the results were not especially promising, so use it with caution (and please get in touch if you have long-read data to help optimise it).
 
 ### FASTA input options
 
@@ -235,18 +236,12 @@ These only take effect with `--input_type fasta`:
 
 Boolean (default `false`), works for **both** input types. Writes one per-gene consensus FASTA per sample to `<outdir>/gene_consensus/<sample>.consensus.fasta`, in reference coordinates and forward orientation, N-padded to each full gene region so records line up across samples and can be checked in other tools.
 
-- FASTA input: the aligned, re-oriented consensus for each submitted gene.
-- FASTQ input: built with `samtools consensus` from the sorted BAM - positions below `--min_depth` become `N`, and minor alleles above `--consensus_ambig_freq` become IUPAC ambiguity codes.
+- `fasta` input: the aligned, re-oriented consensus for each submitted gene.
+- read input (`short-read` / `long-read`): built with `samtools consensus` from the sorted BAM - positions below `--min_depth` become `N`, and minor alleles above `--consensus_ambig_freq` become IUPAC ambiguity codes.
 
 ### `--consensus_ambig_freq`
 
-Minor-allele fraction (default `0.2`) above which the exported gene consensus uses an IUPAC ambiguity code. FASTQ input only.
-
-### `--seq_type`
-
-Specify if the samples in the run are either `'long-read'` (ONT) or `'short-read'` (Illumina). Default is `'short-read'`. If running long-read sequencing, the `--aligner` must be `minimap2`. 
-
-**Note:** The long-read function has only been tested on two publicly available long-read samples, and the results were not super promising, so use with caution! If you have long-read sequencing data you would like to share with me to optimise this function, please reach out!
+Minor-allele fraction (default `0.2`) above which the exported gene consensus uses an IUPAC ambiguity code. Read input only.
 
 ### `--trimmer`
 

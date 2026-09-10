@@ -181,6 +181,10 @@ def validateInputParameters() {
             (read_only ? " Provided but unused: ${read_only.join(', ')}." : "")
         )
     }
+
+    if (params.input_type == 'long-read' && params.aligner != 'minimap2') {
+        error("input_type = 'long-read' requires --aligner minimap2 (got '${params.aligner}'). bowtie2 and bwa-mem3 are short-read only.")
+    }
 }
 
 //

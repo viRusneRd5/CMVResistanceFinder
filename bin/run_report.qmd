@@ -17,7 +17,7 @@ params:
   report_author: ""
   run: ""
   n_samples: ""
-  input_type: "fastq"
+  input_type: "short-read"
 ---
 
 # Summary
@@ -26,7 +26,7 @@ Run: **`r params$run`**
 
 Number of samples run:  **`r params$n_samples`**
 
-Input type: **`r if (params$input_type == "fasta") "Consensus sequences (FASTA)" else "Sequencing reads (FASTQ)"`**
+Input type: **`r switch(params$input_type, "fasta" = "Consensus sequences (FASTA)", "long-read" = "Long-read sequencing (FASTQ)", "Short-read sequencing (FASTQ)")`**
 
 ```{r}
 library(tidyverse)
