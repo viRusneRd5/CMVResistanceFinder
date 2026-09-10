@@ -113,7 +113,6 @@
                     "type": "string",
                     "format": "file-path",
                     "exists": true,
-                    "default": "${projectDir}/assets/NC_006273.2.fasta",
                     "pattern": "^\\S+\\.f(n)?a(sta)?(\\.gz)?$",
                     "description": "CMV reference genome FASTA. Defaults to the bundled Merlin sequence (NC_006273.2).",
                     "fa_icon": "far fa-file-code"
@@ -122,7 +121,6 @@
                     "type": "string",
                     "format": "file-path",
                     "exists": true,
-                    "default": "${projectDir}/assets/NC_006273.2.gff",
                     "pattern": "^\\S+\\.gff$",
                     "description": "Annotation for the CMV reference, used to build the snpEff database. Must end in `.gff` (not `.gff3`).",
                     "fa_icon": "far fa-file-code"
@@ -282,7 +280,6 @@
                     "type": "string",
                     "format": "file-path",
                     "exists": true,
-                    "default": "${projectDir}/assets/final_pheno_meta_analysis_20260827.csv",
                     "pattern": "^\\S+\\.csv$",
                     "description": "Phenotype database: EC50 ratio and resistance level per mutation/drug.",
                     "fa_icon": "fas fa-file-csv"
@@ -297,7 +294,6 @@
                     "type": "string",
                     "format": "file-path",
                     "exists": true,
-                    "default": "${projectDir}/assets/CMV_NC_006273.2_resis_genes.bed",
                     "pattern": "^\\S+\\.bed$",
                     "description": "BED file with the start/end of the six CMV resistance genes (UL27, UL51, UL54, UL56, UL89, UL97), used for the coverage plots. Regenerate with bin/create_resis_genes_bed.py for a non-default reference.",
                     "fa_icon": "fas fa-map-marker-alt"
@@ -306,7 +302,6 @@
                     "type": "string",
                     "format": "file-path",
                     "exists": true,
-                    "default": "${projectDir}/assets/resistance_sites.bed",
                     "pattern": "^\\S+\\.bed$",
                     "description": "BED file with the genomic positions of known resistance mutations, used to mark them on the coverage plots.",
                     "fa_icon": "fas fa-map-pin"
@@ -315,7 +310,6 @@
                     "type": "string",
                     "format": "file-path",
                     "exists": true,
-                    "default": "${projectDir}/assets/cmv_resis_db_bibliography.bib",
                     "pattern": "^\\S+\\.bib$",
                     "description": "BibTeX file with the references cited in the reports.",
                     "fa_icon": "fas fa-book"
