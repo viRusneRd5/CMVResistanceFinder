@@ -25,7 +25,7 @@ This primary purpose of this pipeline is to identify mutations in the six genes 
 
 Picard `MarkDuplicates` identifies duplicates by fragment start/end coordinates. In amplicon data every read from an amplicon shares the same coordinates by design, so Picard would flag almost the whole amplicon as duplicate and collapse it to a single read, destroying the depth we need for variant calling.
 
-Removing genuine PCR duplicates from amplicon data requires unique molecular identifiers (UMIs), which this assay doesn't use. Without them the pipeline assumes that alleles are amplified roughly equally, which is the assumption behind treating read counts as variant frequencies. One consequence is that a PCR error introduced in an early cycle is copied into many reads and can appear as a stable low-frequency variant - another reason to interpret calls near the frequency threshold with caution.
+Removing genuine PCR duplicates from amplicon data requires unique molecular identifiers (UMIs), which my assay doesn't use. Without them the pipeline assumes that alleles are amplified roughly equally, which is the assumption behind treating read counts as variant frequencies. One consequence is that a PCR error introduced in an early cycle is copied into many reads and can appear as a stable low-frequency variant - another reason to interpret calls near the frequency threshold with caution.
 
 (For hybridisation-capture whole-genome data, where fragmentation is random and duplicates behave normally, deduplication would be appropriate. The `wgs` protocol does not currently do this.)
 
