@@ -172,7 +172,7 @@
             "properties": {
                 "aligner": {
                     "type": "string",
-                    "default": "minimap2",
+                    "default": "bwa-mem3",
                     "enum": [
                         "minimap2",
                         "bwa-mem3",
