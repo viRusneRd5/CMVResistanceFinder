@@ -28,6 +28,8 @@ Number of samples run:  **`r params$n_samples`**
 
 Input type: **`r switch(params$input_type, "fasta" = "Consensus sequences (FASTA)", "long-read" = "Long-read sequencing (FASTQ)", "Short-read sequencing (FASTQ)")`**
 
+`r if (params$input_type != "fasta") "**Note:** any single-end samples in this run are flagged individually in their per-sample report - if generated on a platform other than paired-end Illumina (e.g. Ion Torrent), see that sample's report and the FAQ for a caveat on deletion/insertion (DEL/INS) mutation calls." else ""`
+
 ```{r}
 library(tidyverse)
 library(plotly)

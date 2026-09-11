@@ -27,6 +27,7 @@ params:
   protocol: ""
   input_type: "short-read"
   sample: ""
+  single_end: "false"
   resistance: ""
   formatted: ""
   assessed: ""
@@ -59,7 +60,11 @@ Input type: **`r switch(params$input_type, "fasta" = "Consensus sequence (FASTA)
 
 `r if (params$input_type != "fasta") paste0("Sequencing depth threshold: **", params$threshold, "**") else ""`
 
+`r if (params$input_type != "fasta") paste0("Sequencing mode: **", if (tolower(params$single_end) == "true") "Single-end" else "Paired-end", "**") else ""`
+
 Reference sequence: **`r params$reference`**
+
+`r if (params$input_type != "fasta" && tolower(params$single_end) == "true") "**Note:** this sample was sequenced single-end. This pipeline's variant callers and default aligner (bwa-mem3) are tuned for paired-end Illumina data; if this sample was generated on a platform with a different error profile (e.g. Ion Torrent, which is prone to homopolymer-associated indel errors), deletion/insertion (DEL/INS) mutations reported below should be treated with extra caution and, where possible, confirmed by inspecting the aligned reads directly. See the FAQ for details." else ""`
 
 ```{r load_packages}
 #Load Packages
