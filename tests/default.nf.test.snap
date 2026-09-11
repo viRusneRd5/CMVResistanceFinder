@@ -5,6 +5,13 @@
                 "BCFTOOLS_SORT": {
                     "bcftools": "1.23.1"
                 },
+                "BWAMEM3_INDEX": {
+                    "bwamem3": "0.3.0"
+                },
+                "BWAMEM3_MEM": {
+                    "bwamem3": "0.3.0",
+                    "samtools": "1.23.1"
+                },
                 "FASTP": {
                     "fastp": "1.1.0"
                 },
@@ -40,12 +47,6 @@
                 },
                 "MERGE_FORMAT": {
                     "python": "3.13.2"
-                },
-                "MINIMAP2_ALIGN": {
-                    "minimap2": "2.30-r1287"
-                },
-                "MINIMAP2_INDEX": {
-                    "minimap2": "2.30-r1287"
                 },
                 "QUARTO_RUN_REPORT": {
                     "quarto": "1.9.38"
@@ -96,7 +97,7 @@
             "NC_006273.2.fasta.fai:md5,b6a2ed777651bc2f67962a437091e90c",
             "NC_006273.2.fasta.sizes:md5,a0186e8cb6105f51462fbbdecab028ad"
         ],
-        "timestamp": "2026-09-10T12:44:02.413907314",
+        "timestamp": "2026-09-11T13:03:05.642010101",
         "meta": {
             "nf-test": "0.9.5",
             "nextflow": "26.04.6"

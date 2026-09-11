@@ -249,6 +249,8 @@ Minor-allele fraction (default `0.2`) above which the exported gene consensus us
 
 Specify adaptor/quality trimming tool to be used. One of `'trimmomatic'` or `'fastp'`. Fastp is the default as it can auto-detect the adaptors to trim. If using trimmomatic, you will need to provide `--adapter_file <path/to/adapter.fasta>`. Note that if running on long-read sequences, this will default to fastplong for adaptor/quality trimming.
 
+For paired short reads, fastp also runs with `--correction` (uses base quality to fix per-base errors in the overlap between R1/R2, relevant for amplicon-style short inserts) and `--trim_poly_g` (forces poly-G trimming rather than relying on fastp's auto-detection of NextSeq/NovaSeq chemistry from the Illumina instrument ID, which public SRA data often lacks).
+
 ### `--skip_host_removal`
 
 This allows you to skip performing host read removal using hostile. I would only recommend this if your pipeline already performs host-removal prior to running this pipeline, or if you are running public sequencing data where host-removal has presumably already occurred, but it doesn't hurt to leave this on.
@@ -295,7 +297,7 @@ Currently, this must be set to `'all'` so that the pipeline will perform variant
 
 ### `--aligner`
 
-You can choose between three aligning tools - bwa-mem3, bowtie2 and minimap2. The default is minimap2 as I found this gave me the best coverage, but you may have one that you prefer. If running longread sequencing, this must be set to minimap2.
+You can choose between three aligning tools - bwa-mem3, bowtie2 and minimap2. `bwa-mem3` is the default for short-read data: it and `bowtie2` are the field-standard short-read aligners for small-variant/indel calling (used by e.g. GATK best practices and nf-core/viralrecon), whereas minimap2's short-read mode was designed more for speed across many use cases than for the precise indel representation this pipeline's resistance-mutation calling relies on. If running long-read sequencing, this must be set to `minimap2` (the correct tool for Nanopore data, and the pipeline enforces this automatically).
 
 ### `--min_depth`
 
