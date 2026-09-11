@@ -39,7 +39,9 @@ CONTROL_REP1,AEG588A1_S1_L004_R1_001.fastq.gz,AEG588A1_S1_L004_R2_001.fastq.gz
 
 ### Full samplesheet
 
-The pipeline will auto-detect whether a sample is single- or paired-end using the information provided in the samplesheet. The samplesheet can have as many columns as you desire, however, there is a strict requirement for the first 3 columns to match those defined in the table below.
+The pipeline will auto-detect whether a sample is single- or paired-end using the information provided in the samplesheet - leave `fastq_2` empty for a single-end sample. Paired-end and single-end rows can be freely mixed in the same samplesheet. The samplesheet can have as many columns as you desire, however, there is a strict requirement for the first 3 columns to match those defined in the table below.
+
+Single-end short-read data is often a sign of a non-Illumina platform (e.g. Ion Torrent); see the [FAQ](faq.md) ("Can I run this pipeline with Ion Torrent...") for a caveat on indel (DEL/INS) calls from such data.
 
 A final samplesheet file consisting of both single- and paired-end data may look something like the one below. This is for 6 samples, where `TREATMENT_REP3` has been sequenced twice.
 
