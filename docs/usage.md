@@ -58,7 +58,7 @@ TREATMENT_REP3,AEG588A6_S6_L004_R1_001.fastq.gz,
 
 | Column    | Description                                                                                                                                                                            |
 | --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `sample`  | Custom sample name. This entry will be identical for multiple sequencing libraries/runs from the same sample. Spaces in sample names are automatically converted to underscores (`_`). |
+| `sample`  | Custom sample name. This entry will be identical for multiple sequencing libraries/runs from the same sample. Letters, numbers, `.`, `_` and `-` only - it is used directly as an output file name throughout the pipeline, so no spaces, colons, slashes, etc. |
 | `fastq_1` | Full path to FastQ file for Illumina short reads 1. File has to be gzipped and have the extension ".fastq.gz" or ".fq.gz".                                                             |
 | `fastq_2` | Full path to FastQ file for Illumina short reads 2. File has to be gzipped and have the extension ".fastq.gz" or ".fq.gz".                                                             |
 
@@ -86,7 +86,7 @@ PATIENT_02,/data/sanger/PATIENT_02.consensus.fasta
 
 | Column   | Description                                                                                                                                                                                 |
 | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `sample` | Custom sample name. Spaces are converted to underscores (`_`).                                                                                                                                |
+| `sample` | Custom sample name. Letters, numbers, `.`, `_` and `-` only.                                                                                                                                |
 | `fasta`  | One **multi-record** FASTA per sample - one record per resistance gene. Extension `.fa`, `.fasta` or `.fna`. Paths may be absolute or relative to the samplesheet.                              |
 
 Each record header must **start with** one of the six resistance gene names (case-insensitive; a suffix is allowed, e.g. `>UL54`, `>UL54_patient01`, `>UL89_A`):

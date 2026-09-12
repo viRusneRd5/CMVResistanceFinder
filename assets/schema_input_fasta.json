@@ -9,8 +9,8 @@
         "properties": {
             "sample": {
                 "type": "string",
-                "pattern": "^\\S+$",
-                "errorMessage": "Sample name must be provided and cannot contain spaces",
+                "pattern": "^[A-Za-z0-9._-]+$",
+                "errorMessage": "Sample name must be provided and can only contain letters, numbers, '.', '_' and '-' (no spaces, colons, slashes, etc.) - it is used directly as an output file name throughout the pipeline, and characters such as ':' can silently break some tools (e.g. samtools) even though nothing else flags them as invalid.",
                 "meta": ["id"]
             },
             "fasta": {
