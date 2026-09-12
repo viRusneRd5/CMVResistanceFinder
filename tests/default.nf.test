@@ -14,6 +14,7 @@ nextflow_pipeline {
 
         then {
             def resistance = path("$outputDir/variant_files/MOCK_CMV.resistance.tsv").text
+            def genotypes = path("$outputDir/genotype/run_genotypes.tsv").text
 
             // the six mutations spiked into the bundled test reads, as
             // <Gene><TAB><Mutation> - each must be called and matched to the
@@ -47,6 +48,12 @@ nextflow_pipeline {
                 { assert path("$outputDir/report_files/MOCK_CMV.pdf").exists() },
                 { assert path("$outputDir/report_files/test_run.html").exists() },
                 { assert path("$outputDir/multiqc/multiqc_report.html").exists() },
+
+                // strain genotyping: Merlin's own (unmodified) UL55/UL73 sequences
+                // classify confidently as gB3/gN4d against the curated reference
+                // panels - one combined run-level file, no per-sample files
+                { assert genotypes.contains("MOCK_CMV\tUL55\tgB3") : "expected UL55 genotype gB3 in run_genotypes.tsv" },
+                { assert genotypes.contains("MOCK_CMV\tUL73\tgN4d") : "expected UL73 genotype gN4d in run_genotypes.tsv" },
             )
         }
     }

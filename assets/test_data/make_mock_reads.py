@@ -7,6 +7,14 @@ the Merlin reference (NC_006273.2), with a fixed set of resistance mutations
 spiked in homozygously so the pipeline's variant calling and phenotype matching
 can be asserted end to end.
 
+Also tiles reads (unmodified - no spiked edits) across UL55 (gB) and UL73 (gN)
+so --genotype_gb/--genotype_gn have something to classify in CI. No sequence
+editing needed: Merlin's own UL55/UL73 sequences already classify confidently
+against the curated reference panels (gB3 and gN4d respectively - verified with
+bin/genotype_classify.py directly against the reference panels before relying
+on it here), so plain wild-type coverage gives a real, deterministic expected
+genotype for nf-test to assert against.
+
 Deterministic (fixed seed). Re-run after changing the spiked mutations or the
 reference:
 
@@ -45,6 +53,15 @@ GENES: dict[str, list[tuple[int, int, str]]] = {
     "UL56": [(84752, 87304, "-")],
     "UL89": [(138810, 139697, "-"), (133770, 134906, "-")],
     "UL97": [(141798, 143921, "+")],
+}
+
+# Genotyping-only regions: tiled for read coverage the same way as GENES above,
+# but with no spiked edits and no CDS/strand structure needed (nothing is
+# translated for these - genotype_classify.py handles strand/orientation
+# itself). 1-based inclusive, matching assets/genotype_genes.bed.
+GENOTYPE_REGIONS: dict[str, tuple[int, int]] = {
+    "UL55": (82066, 84789),
+    "UL73": (107051, 107458),
 }
 
 # The resistance mutations to spike, as (gene, 1-based protein position, wild-type
@@ -168,9 +185,14 @@ def build_edits(ref: str):
 def simulate(mut_ref: str, rng: random.Random):
     r1, r2 = [], []
     n = 0
-    for gene, segs in GENES.items():
-        g_start = min(s for s, _, _ in segs) - 1
-        g_end = max(e for _, e, _ in segs)
+    regions = {
+        gene: (min(s for s, _, _ in segs) - 1, max(e for _, e, _ in segs))
+        for gene, segs in GENES.items()
+    }
+    regions.update({
+        gene: (start - 1, end) for gene, (start, end) in GENOTYPE_REGIONS.items()
+    })
+    for gene, (g_start, g_end) in regions.items():
         # centre fragments across the whole gene (fragments spill ~half their
         # length into the flanks) so every gene base, including the ends, gets
         # full paired-read depth.
