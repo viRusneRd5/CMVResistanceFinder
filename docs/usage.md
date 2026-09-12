@@ -217,6 +217,8 @@ Specify this when restarting a pipeline. Nextflow will use cached results from a
 
 You can also supply a run name to resume a specific run: `-resume [run-name]`. Use the `nextflow log` command to show previous run names.
 
+This pipeline sets `process.cache = 'lenient'`, so cached inputs are matched by file path and size rather than modification time - the default (`'true'`) includes mtime, which is fragile on shared/networked filesystems and can silently break `-resume` after an operation that touches a file's timestamp without changing its content (e.g. a `git checkout` of the pipeline's own working copy between two resumes).
+
 ### `-c`
 
 Specify the path to a specific config file (this is a core Nextflow command). See the [nf-core website documentation](https://nf-co.re/usage/configuration) for more information.
@@ -357,6 +359,10 @@ Minimum read mapping quality for variant calling (default is `20`). Passed to al
 ### `--skip_sample_report`
 
 Boolean to skip the generation of the individual sample reports. Default is `false`.
+
+### `--publish_dir_mode`
+
+How published output files are written into `--outdir`. Default is `link` (a hard link to the file already sitting in the work directory - free, zero extra disk space). This requires `--outdir` to be on the **same filesystem** as Nextflow's work directory (the common case for an HPC scratch area); if it isn't (e.g. publishing to cloud/object storage, or a genuinely separate filesystem/mount), set `--publish_dir_mode copy` instead, which duplicates each file but works anywhere.
 
 ## Extra custom configuration (for advanced users)
 
