@@ -362,7 +362,7 @@ Boolean to skip the generation of the individual sample reports. Default is `fal
 
 ### `--publish_dir_mode`
 
-How published output files are written into `--outdir`. Default is `link` (a hard link to the file already sitting in the work directory - free, zero extra disk space). This requires `--outdir` to be on the **same filesystem** as Nextflow's work directory (the common case for an HPC scratch area); if it isn't (e.g. publishing to cloud/object storage, or a genuinely separate filesystem/mount), set `--publish_dir_mode copy` instead, which duplicates each file but works anywhere.
+How published output files are written into `--outdir`. Default is `copy`, which works everywhere. If `--outdir` is on the **same filesystem** as Nextflow's work directory (the common case for an HPC scratch area), you can instead pass `--publish_dir_mode link` to hard-link each output rather than copying it - free, zero extra disk space, since it's the same data already sitting in the work directory.
 
 ## Extra custom configuration (for advanced users)
 
