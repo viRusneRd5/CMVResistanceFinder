@@ -11,6 +11,7 @@ process QUARTO_RUN_REPORT {
     val(run_name) //run name to list at the top of the report
     val(n_samples) //number of samples in samplesheet to list on report
     val(input_type) //one of short-read, long-read or fasta
+    path(run_genotypes) //run_genotypes.tsv from GENOTYPE_MERGE (empty list if no genotyping was enabled)
 
     output:
     path("${run_name}.html")
@@ -27,6 +28,7 @@ process QUARTO_RUN_REPORT {
         -P run:${run_name} \
         -P n_samples:${n_samples} \
         -P input_type:${input_type} \
+        -P run_genotypes:"${run_genotypes}" \
         --output ${prefix}.html
     """
 

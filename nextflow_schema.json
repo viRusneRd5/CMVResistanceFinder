@@ -428,6 +428,65 @@
                     "description": "Display hidden parameters in the help message (only works when --help or --help_full are provided)."
                 }
             }
+        },
+        "strain_genotyping_options": {
+            "title": "Strain genotyping options",
+            "type": "object",
+            "fa_icon": "fas fa-dna",
+            "description": "Optional gene-genotype classification (e.g. UL55/gB), independent of resistance-mutation calling. Read input only (short-read/long-read), not FASTA.",
+            "properties": {
+                "genotype_gb": {
+                    "type": "boolean",
+                    "description": "Genotype UL55 (glycoprotein B) against a curated gB1-4 reference panel.",
+                    "help_text": "Builds a consensus over UL55 (independent of --export_gene_consensus) and classifies it by nearest-neighbour percent identity against the reference panel in --gb_genotype_references. Works from either a full-gene (e.g. WGS) or partial (e.g. amplicon) consensus, as long as enough of the informative region is covered - see --genotype_min_compared_bases. Adds one row per sample to <outdir>/genotype/run_genotypes.tsv and a Genotyping section to the sample/run reports.",
+                    "fa_icon": "fas fa-fingerprint"
+                },
+                "genotype_genes_bed": {
+                    "type": "string",
+                    "format": "file-path",
+                    "exists": true,
+                    "description": "BED (chrom, start, end, gene) of the gene region(s) to build a genotyping consensus over.",
+                    "fa_icon": "far fa-file-code"
+                },
+                "gb_genotype_references": {
+                    "type": "string",
+                    "format": "file-path",
+                    "exists": true,
+                    "description": "FASTA reference panel for gB genotyping - one record per genotype, header = genotype label (e.g. gB1).",
+                    "fa_icon": "far fa-file-code"
+                },
+                "genotype_min_region_covered": {
+                    "type": "number",
+                    "default": 0.05,
+                    "minimum": 0,
+                    "maximum": 1,
+                    "description": "Minimum fraction of the gene with non-N consensus before attempting a call.",
+                    "help_text": "This is a sanity floor, not a 'whole gene' requirement - an amplicon assay covering a small, informative fraction of a large gene is expected and fine. --genotype_min_compared_bases is the real quality gate for partial coverage.",
+                    "fa_icon": "fas fa-ruler"
+                },
+                "genotype_min_compared_bases": {
+                    "type": "integer",
+                    "default": 300,
+                    "minimum": 1,
+                    "description": "Minimum informative bases aligned against the best-matching reference to trust an identity score.",
+                    "fa_icon": "fas fa-ruler-combined"
+                },
+                "genotype_ambiguous_margin": {
+                    "type": "number",
+                    "default": 1.0,
+                    "minimum": 0,
+                    "description": "Report \"ambiguous (X/Y)\" rather than a single genotype if the best and second-best identity are within this many percentage points of each other.",
+                    "fa_icon": "fas fa-not-equal"
+                },
+                "genotype_unresolved_floor": {
+                    "type": "number",
+                    "default": 90.0,
+                    "minimum": 0,
+                    "maximum": 100,
+                    "description": "Report \"unresolved\" rather than forcing a call if the best identity match is below this percentage.",
+                    "fa_icon": "fas fa-question-circle"
+                }
+            }
         }
     },
     "allOf": [
@@ -442,6 +501,9 @@
         },
         {
             "$ref": "#/$defs/variant_calling_and_alignment_options"
+        },
+        {
+            "$ref": "#/$defs/strain_genotyping_options"
         },
         {
             "$ref": "#/$defs/resistance_database_and_report_options"

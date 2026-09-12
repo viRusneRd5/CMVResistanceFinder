@@ -50,6 +50,9 @@ include { MERGE_FORMAT                               } from '../modules/local/me
 include { QUARTO_SAMPLE_REPORT                       } from '../modules/local/quarto/sample_report/main'
 include { SAMTOOLS_COVERAGE                          } from '../modules/local/samtools/coverage/main'
 include { GENE_CONSENSUS                             } from '../modules/local/gene_consensus/main'
+include { GENE_CONSENSUS as GENE_CONSENSUS_GENOTYPE  } from '../modules/local/gene_consensus/main'
+include { GENOTYPE_CLASSIFY as GENOTYPE_CLASSIFY_GB  } from '../modules/local/genotype/classify/main'
+include { GENOTYPE_MERGE                              } from '../modules/local/genotype/merge/main'
 include { QUARTO_RUN_REPORT                          } from '../modules/local/quarto/run_report/main'
 
 
@@ -98,6 +101,8 @@ workflow CMVRESISTANCEFINDER {
 
 
     ch_genes_bed = Channel.fromPath(params.cmv_genes_bed).first()
+    ch_genotype_genes_bed = Channel.fromPath(params.genotype_genes_bed).first()
+    ch_gb_genotype_references = Channel.fromPath(params.gb_genotype_references).first()
 
     ch_snpsift_all = Channel.empty()
     ch_fasta_assessed = Channel.empty()
@@ -296,6 +301,29 @@ workflow CMVRESISTANCEFINDER {
         )
     }
 
+    //
+    // MODULE: Optional UL55 (gB) genotyping - independent of --export_gene_consensus,
+    // this builds its own consensus over the genotyping gene(s) and classifies each
+    // against a curated reference panel by nearest-neighbour identity. gN (UL73)
+    // follows the same pattern once its reference panel is ready.
+    //
+    ch_genotype_tsvs = Channel.empty()
+    if (params.genotype_gb) {
+        GENE_CONSENSUS_GENOTYPE (
+            ch_bam_bai,
+            ch_genotype_genes_bed,
+            params.min_depth,
+            params.consensus_ambig_freq
+        )
+        GENOTYPE_CLASSIFY_GB (
+            GENE_CONSENSUS_GENOTYPE.out.fasta,
+            'UL55',
+            '-',
+            ch_gb_genotype_references
+        )
+        ch_genotype_tsvs = ch_genotype_tsvs.mix(GENOTYPE_CLASSIFY_GB.out.tsv)
+    }
+
 
     // TODO: get stats on samples that passed minimum mapped reads
 
@@ -476,9 +504,19 @@ workflow CMVRESISTANCEFINDER {
         // MODULE: Output html report for each sample using quarto
         //
         if (!params.skip_sample_report){
-            // sixth tuple slot (assessed.tsv) is FASTA-only -> empty here
-            ch_quarto = ch_sorted_bam.join(ch_sort_bam_index).join(ch_resistance).join(ch_formatted)
-                .map { meta, bam, bai, resistance, formatted -> tuple(meta, bam, bai, resistance, formatted, []) }
+            // sixth tuple slot (assessed.tsv) is FASTA-only -> empty here.
+            // seventh slot (genotype tsv) is only populated when genotyping is
+            // enabled - joining against ch_genotype_tsvs when it's empty would
+            // drop every sample, so branch instead of joining unconditionally.
+            // One row per sample while only gB is wired up; revisit if/when gN
+            // needs combining into the same per-sample file.
+            if (params.genotype_gb) {
+                ch_quarto = ch_sorted_bam.join(ch_sort_bam_index).join(ch_resistance).join(ch_formatted).join(ch_genotype_tsvs)
+                    .map { meta, bam, bai, resistance, formatted, genotype -> tuple(meta, bam, bai, resistance, formatted, [], genotype) }
+            } else {
+                ch_quarto = ch_sorted_bam.join(ch_sort_bam_index).join(ch_resistance).join(ch_formatted)
+                    .map { meta, bam, bai, resistance, formatted -> tuple(meta, bam, bai, resistance, formatted, [], []) }
+            }
             QUARTO_SAMPLE_REPORT (
                 ch_quarto,
                 ch_resis_mut_bed,
@@ -511,13 +549,24 @@ workflow CMVRESISTANCEFINDER {
         //
         ch_resistances = ch_resistance.map { meta, resistance -> resistance }.collect()
         ch_total_count = ch_raw_fastqs.count()
+
+        // Run-level genotype summary (one row per sample per genotyped gene) -
+        // empty list when no genotyping was enabled, so the report can skip
+        // the whole Genotyping section.
+        ch_run_genotypes = Channel.value([])
+        if (params.genotype_gb) {
+            GENOTYPE_MERGE ( ch_genotype_tsvs.map { meta, tsv -> tsv }.collect() )
+            ch_run_genotypes = GENOTYPE_MERGE.out.tsv
+        }
+
         QUARTO_RUN_REPORT (
             ch_coverages,
             ch_resistances,
             params.report_author,
             params.run_name,
             ch_total_count,
-            params.input_type
+            params.input_type,
+            ch_run_genotypes
         )
     }
 
@@ -528,8 +577,9 @@ workflow CMVRESISTANCEFINDER {
     if (params.input_type == 'fasta') {
 
         if (!params.skip_sample_report){
+            // seventh tuple slot (genotype tsv(s)) is short/long-read only -> empty here
             ch_quarto_fa = ch_resistance.join(ch_formatted).join(ch_fasta_assessed)
-                .map { meta, resistance, formatted, assessed -> tuple(meta, [], [], resistance, formatted, assessed) }
+                .map { meta, resistance, formatted, assessed -> tuple(meta, [], [], resistance, formatted, assessed, []) }
             QUARTO_SAMPLE_REPORT (
                 ch_quarto_fa,
                 ch_resis_mut_bed,
@@ -554,7 +604,8 @@ workflow CMVRESISTANCEFINDER {
             params.report_author,
             params.run_name,
             ch_total_count,
-            params.input_type
+            params.input_type,
+            []
         )
     }
 

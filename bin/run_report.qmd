@@ -18,6 +18,7 @@ params:
   run: ""
   n_samples: ""
   input_type: "short-read"
+  run_genotypes: ""
 ---
 
 # Summary
@@ -40,6 +41,35 @@ library(htmltools)
 is_fasta <- params$input_type == "fasta"
 ```
 
+```{r genotype_analysis}
+# Strain genotyping (e.g. UL55/gB) - independent of resistance-mutation
+# calling. run_genotypes is empty unless a --genotype_* flag was set.
+run_genotypes_df <- NULL
+if (nzchar(params$run_genotypes) && file.exists(params$run_genotypes)) {
+  run_genotypes_df <- read_tsv(params$run_genotypes, show_col_types = FALSE) |>
+    rename(
+      Sample = sample,
+      Gene = gene,
+      Genotype = genotype,
+      `Region covered` = region_covered,
+      `Match confidence` = match_confidence,
+      Notes = notes
+    )
+}
+```
+
+`r if (!is.null(run_genotypes_df)) "# Genotyping" else ""`
+
+```{r genotype_table}
+if (!is.null(run_genotypes_df)) {
+  run_genotypes_df |>
+    gt() |>
+    sub_missing(missing_text = "") |>
+    tab_options(
+      table.font.size = if (!knitr::is_html_output()) "8pt" else "100%"
+    )
+}
+```
 
 ```{r}
 # FASTQ input: per-gene coverage/depth from samtools coverage.
