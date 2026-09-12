@@ -17,6 +17,7 @@ Initial release of viRusneRd5/cmvresistancefinder, built with the [nf-core](http
 - `--min_mapq` (default 20) applied consistently across `iVar`, `FreeBayes` and `LoFreq`; `LoFreq` minimum variant frequency applied via `lofreq filter`.
 - Bundled simulated CMV amplicon test dataset with known spiked-in resistance mutations, exercised by `-profile test` and nf-test.
 - `conda_singularity` and `conda_docker` profiles.
+- Optional strain genotyping (`--genotype_gb`, `--genotype_gn`): classifies `UL55` (gB) and/or `UL73` (gN) by nearest-neighbour percent identity against a curated reference panel, from either a full-gene (WGS) or partial (amplicon) consensus. Entirely separate from resistance-mutation calling. One combined `<outdir>/genotype/run_genotypes.tsv` per run (no per-sample files), plus a "Genotyping" section in the sample and run reports.
 
 ### `Fixed`
 
