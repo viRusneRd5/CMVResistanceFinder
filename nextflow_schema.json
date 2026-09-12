@@ -441,6 +441,12 @@
                     "help_text": "Builds a consensus over UL55 (independent of --export_gene_consensus) and classifies it by nearest-neighbour percent identity against the reference panel in --gb_genotype_references. Works from either a full-gene (e.g. WGS) or partial (e.g. amplicon) consensus, as long as enough of the informative region is covered - see --genotype_min_compared_bases. Adds one row per sample to <outdir>/genotype/run_genotypes.tsv and a Genotyping section to the sample/run reports.",
                     "fa_icon": "fas fa-fingerprint"
                 },
+                "genotype_gn": {
+                    "type": "boolean",
+                    "description": "Genotype UL73 (glycoprotein N) against a curated gN1/gN2/gN3a/gN3b/gN4a/gN4b/gN4c(/gN4d) reference panel.",
+                    "help_text": "Same mechanism as --genotype_gb (see its help text). Note: the Merlin reference genome's own UL73 sequence is itself an atypical gN4d-lineage sequence rather than a 'central' representative, so genotype calls are made against the curated reference panel in --gn_genotype_references, not by divergence from Merlin.",
+                    "fa_icon": "fas fa-fingerprint"
+                },
                 "genotype_genes_bed": {
                     "type": "string",
                     "format": "file-path",
@@ -453,6 +459,13 @@
                     "format": "file-path",
                     "exists": true,
                     "description": "FASTA reference panel for gB genotyping - one record per genotype, header = genotype label (e.g. gB1).",
+                    "fa_icon": "far fa-file-code"
+                },
+                "gn_genotype_references": {
+                    "type": "string",
+                    "format": "file-path",
+                    "exists": true,
+                    "description": "FASTA reference panel for gN genotyping - one record per genotype, header = genotype label (e.g. gN1, gN3a, gN4b).",
                     "fa_icon": "far fa-file-code"
                 },
                 "genotype_min_region_covered": {
