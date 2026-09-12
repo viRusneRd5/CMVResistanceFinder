@@ -80,7 +80,7 @@
 
 - [quarto](https://doi.org/10.5281/zenodo.5960048)
 
-> Allaire, J., Teague, C., Scheidegger, C., Xie, Y., Dervieux, C., & Woodhull, G. (2026). Quarto (Version 1.10) [Computer software]. 
+> Allaire, J., Teague, C., Scheidegger, C., Xie, Y., Dervieux, C., & Woodhull, G. (2026). Quarto (Version 1.10) [Computer software].
 
 - [SnpEff](https://dx.doi.org/10.4161/fly.19695)
 
@@ -128,7 +128,7 @@
 
 - [Rsamtools](https://bioconductor.org/packages/Rsamtools)
 
-> Martin Morgan and Hervé Pagès and Valerie Obenchain and Nathaniel Hayden. Rsamtools: Binary alignment (BAM), FASTA, variant call (BCF), and tabix file import. 
+> Martin Morgan and Hervé Pagès and Valerie Obenchain and Nathaniel Hayden. Rsamtools: Binary alignment (BAM), FASTA, variant call (BCF), and tabix file import.
 
 ## Software packaging/containerisation tools
 

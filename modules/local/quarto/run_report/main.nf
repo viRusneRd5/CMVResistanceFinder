@@ -32,5 +32,5 @@ process QUARTO_RUN_REPORT {
         --output ${prefix}.html
     """
 
-    //TODO figure out stub here, add parameters to yml file, 
+    //TODO figure out stub here, add parameters to yml file,
 }

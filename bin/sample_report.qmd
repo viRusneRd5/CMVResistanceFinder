@@ -497,7 +497,7 @@ if(nrow(resis_df)!=0){
         rows = Letermovir == "High"
       )
     ) |> tab_source_note(source_note = legend)
-  
+
 }
 
 ```
@@ -972,7 +972,7 @@ if(nrow(resis_df)!=0){
     filter(Level == "Low")
 
   if(nrow(high_level) > 0) {
-    
+
     high_text <- paste0(
       high_level$Mutation,
       " (",
@@ -980,7 +980,7 @@ if(nrow(resis_df)!=0){
       ")",
       collapse = "; "
     )
-    
+
     sentence2 <- paste0(
       "High-level resistance-associated findings included ",
       high_text,
@@ -989,7 +989,7 @@ if(nrow(resis_df)!=0){
   }
 
   if(nrow(med_level) > 0) {
-    
+
     med_text <- paste0(
       med_level$Mutation,
       " (",
@@ -997,16 +997,16 @@ if(nrow(resis_df)!=0){
       ")",
       collapse = "; "
     )
-    
+
     sentence3 <- paste0(
       "Medium-level resistance-associated findings included ",
       med_text,
       "."
     )
-  } 
+  }
 
   if(nrow(low_level) > 0) {
-    
+
     low_text <- paste0(
       low_level$Mutation,
       " (",
@@ -1014,7 +1014,7 @@ if(nrow(resis_df)!=0){
       ")",
       collapse = "; "
     )
-    
+
     sentence4 <- paste0(
       "Low-level resistance-associated findings included ",
       low_text,
@@ -1203,9 +1203,8 @@ The database used to generate this report was **`r params$database_name`** versi
 
 *This pipeline was written by Jocelyn Hume at the University of Queensland <j.hume@uq.edu.au>*
 
-***The results in this report are for research use only and should not be used to inform clinical practice.*** 
+***The results in this report are for research use only and should not be used to inform clinical practice.***
 
 ***This report only contains a summary of the results. Full coverage tables and variant-caller metrics are available in the pipeline output directory and should be reviewed alongside this report.***
 
 `r if(nrow(resis_df)!=0) "# References" else ""`
-

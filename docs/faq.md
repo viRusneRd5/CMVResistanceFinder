@@ -51,10 +51,10 @@ You can change `--min_depth`, `--min_freq` and `--min_mapq` on the command line 
 
 You will need to provide the following:
 1. fasta file
-2. gff file 
+2. gff file
       must have extension .gff, if it ends in .gff3 you will need to rename it
 3. the name of your reference
-      the CHROM name in the header of the fasta file - these must match! 
+      the CHROM name in the header of the fasta file - these must match!
       e.g. "NC_006273.2" for merlin or "X17403.1" for AD169
 4. bed file
       the locations of the six resistance genes as described above. Yes you need this even if using wgs protocol.

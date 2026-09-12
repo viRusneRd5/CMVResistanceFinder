@@ -17,7 +17,7 @@ process SAMPLESHEET_CHECK {
     when:
     task.ext.when == null || task.ext.when
 
-    script: 
+    script:
     """
     check_samplesheet.py $samplesheet samplesheet.valid.csv
 
