@@ -52,6 +52,7 @@ include { SAMTOOLS_COVERAGE                          } from '../modules/local/sa
 include { GENE_CONSENSUS                             } from '../modules/local/gene_consensus/main'
 include { GENE_CONSENSUS as GENE_CONSENSUS_GENOTYPE  } from '../modules/local/gene_consensus/main'
 include { GENOTYPE_CLASSIFY as GENOTYPE_CLASSIFY_GB  } from '../modules/local/genotype/classify/main'
+include { GENOTYPE_CLASSIFY as GENOTYPE_CLASSIFY_GN  } from '../modules/local/genotype/classify/main'
 include { GENOTYPE_MERGE                              } from '../modules/local/genotype/merge/main'
 include { QUARTO_RUN_REPORT                          } from '../modules/local/quarto/run_report/main'
 
@@ -103,6 +104,7 @@ workflow CMVRESISTANCEFINDER {
     ch_genes_bed = Channel.fromPath(params.cmv_genes_bed).first()
     ch_genotype_genes_bed = Channel.fromPath(params.genotype_genes_bed).first()
     ch_gb_genotype_references = Channel.fromPath(params.gb_genotype_references).first()
+    ch_gn_genotype_references = Channel.fromPath(params.gn_genotype_references).first()
 
     ch_snpsift_all = Channel.empty()
     ch_fasta_assessed = Channel.empty()
@@ -302,26 +304,40 @@ workflow CMVRESISTANCEFINDER {
     }
 
     //
-    // MODULE: Optional UL55 (gB) genotyping - independent of --export_gene_consensus,
-    // this builds its own consensus over the genotyping gene(s) and classifies each
-    // against a curated reference panel by nearest-neighbour identity. gN (UL73)
-    // follows the same pattern once its reference panel is ready.
+    // MODULE: Optional strain genotyping (UL55/gB, UL73/gN) - independent of
+    // --export_gene_consensus, this builds its own consensus over whichever
+    // genotyping gene(s) are enabled and classifies each against a curated
+    // reference panel by nearest-neighbour identity. genotype_genes.bed lists
+    // both genes; GENE_CONSENSUS_GENOTYPE runs once (building both records)
+    // whenever either flag is set, and each classifier picks its own record
+    // back out by name - negligible extra work if only one flag is on.
     //
     ch_genotype_tsvs = Channel.empty()
-    if (params.genotype_gb) {
+    if (params.genotype_gb || params.genotype_gn) {
         GENE_CONSENSUS_GENOTYPE (
             ch_bam_bai,
             ch_genotype_genes_bed,
             params.min_depth,
             params.consensus_ambig_freq
         )
-        GENOTYPE_CLASSIFY_GB (
-            GENE_CONSENSUS_GENOTYPE.out.fasta,
-            'UL55',
-            '-',
-            ch_gb_genotype_references
-        )
-        ch_genotype_tsvs = ch_genotype_tsvs.mix(GENOTYPE_CLASSIFY_GB.out.tsv)
+        if (params.genotype_gb) {
+            GENOTYPE_CLASSIFY_GB (
+                GENE_CONSENSUS_GENOTYPE.out.fasta,
+                'UL55',
+                '-',
+                ch_gb_genotype_references
+            )
+            ch_genotype_tsvs = ch_genotype_tsvs.mix(GENOTYPE_CLASSIFY_GB.out.tsv)
+        }
+        if (params.genotype_gn) {
+            GENOTYPE_CLASSIFY_GN (
+                GENE_CONSENSUS_GENOTYPE.out.fasta,
+                'UL73',
+                '+',
+                ch_gn_genotype_references
+            )
+            ch_genotype_tsvs = ch_genotype_tsvs.mix(GENOTYPE_CLASSIFY_GN.out.tsv)
+        }
     }
 
 
@@ -505,13 +521,13 @@ workflow CMVRESISTANCEFINDER {
         //
         if (!params.skip_sample_report){
             // sixth tuple slot (assessed.tsv) is FASTA-only -> empty here.
-            // seventh slot (genotype tsv) is only populated when genotyping is
-            // enabled - joining against ch_genotype_tsvs when it's empty would
-            // drop every sample, so branch instead of joining unconditionally.
-            // One row per sample while only gB is wired up; revisit if/when gN
-            // needs combining into the same per-sample file.
-            if (params.genotype_gb) {
-                ch_quarto = ch_sorted_bam.join(ch_sort_bam_index).join(ch_resistance).join(ch_formatted).join(ch_genotype_tsvs)
+            // seventh slot (genotype tsv(s)) is only populated when genotyping
+            // is enabled - joining against ch_genotype_tsvs when it's empty
+            // would drop every sample, so branch instead of joining
+            // unconditionally. groupTuple collects one file per enabled gene
+            // (gB and/or gN) into a list for the report to read+combine.
+            if (params.genotype_gb || params.genotype_gn) {
+                ch_quarto = ch_sorted_bam.join(ch_sort_bam_index).join(ch_resistance).join(ch_formatted).join(ch_genotype_tsvs.groupTuple())
                     .map { meta, bam, bai, resistance, formatted, genotype -> tuple(meta, bam, bai, resistance, formatted, [], genotype) }
             } else {
                 ch_quarto = ch_sorted_bam.join(ch_sort_bam_index).join(ch_resistance).join(ch_formatted)
@@ -554,7 +570,7 @@ workflow CMVRESISTANCEFINDER {
         // empty list when no genotyping was enabled, so the report can skip
         // the whole Genotyping section.
         ch_run_genotypes = Channel.value([])
-        if (params.genotype_gb) {
+        if (params.genotype_gb || params.genotype_gn) {
             GENOTYPE_MERGE ( ch_genotype_tsvs.map { meta, tsv -> tsv }.collect() )
             ch_run_genotypes = GENOTYPE_MERGE.out.tsv
         }

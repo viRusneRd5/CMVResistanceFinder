@@ -10,7 +10,7 @@ process QUARTO_SAMPLE_REPORT {
     // use the conda_singularity profile.
 
     input:
-    tuple val(meta), path(bam), path(bai), path(resistance), path(formatted), path(assessed), path(genotype) //sorted bam (empty for fasta input), resistance + formatted from MERGE_FORMAT, assessed.tsv (fasta input only, empty otherwise), genotype.tsv (short/long-read only, empty otherwise)
+    tuple val(meta), path(bam), path(bai), path(resistance), path(formatted), path(assessed), path(genotype) //sorted bam (empty for fasta input), resistance + formatted from MERGE_FORMAT, assessed.tsv (fasta input only, empty otherwise), genotype.tsv(s) - one per enabled gene (gB/gN), empty otherwise
     path(mut_bed) //this is the bed file listing the locations of the mutations for the report plot
     val(protocol) //one of amplicon or wgs
     val(input_type) //one of short-read, long-read or fasta
@@ -49,7 +49,7 @@ single_end: "${meta.single_end}"
 resistance: "${resistance}"
 formatted: "${formatted}"
 assessed: "${assessed}"
-genotype: "${genotype}"
+genotype: "${genotype.join(' ')}"
 bam: "${bam}"
 mut_bed: "${mut_bed}"
 protocol: "${protocol}"

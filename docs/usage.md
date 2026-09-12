@@ -245,6 +245,49 @@ Boolean (default `false`), works for **both** input types. Writes one per-gene c
 
 Minor-allele fraction (default `0.2`) above which the exported gene consensus uses an IUPAC ambiguity code. Read input only.
 
+### `--genotype_gb` / `--genotype_gn`
+
+Both boolean, both default `false`, both `short-read`/`long-read` input only (not `fasta`). Independent of `--export_gene_consensus` - each builds its own internal consensus over the relevant gene region regardless of that flag's setting.
+
+- `--genotype_gb` classifies **UL55 (glycoprotein B)** against a curated **gB1-4** reference panel.
+- `--genotype_gn` classifies **UL73 (glycoprotein N)** against a curated **gN1/gN2/gN3a/gN3b/gN4a/gN4b/gN4c(/gN4d)** reference panel.
+
+These are strain-typing markers, not resistance mutations - the result is entirely separate from the resistance database/report. Either flag can be enabled on its own, or both together; either works from a full-gene (e.g. WGS) or partial (e.g. amplicon) consensus, as long as enough of the gene's informative region is actually covered - an amplicon assay covering a small fraction of a large gene is expected and fine (see `--genotype_min_compared_bases` below), it does not need to cover the whole gene.
+
+The classifier compares the consensus to each reference panel entry by percent identity and reports:
+
+- a confident genotype call (e.g. `gB2`),
+- `ambiguous (gBx/gBy)` when the top two matches are too close to call (`--genotype_ambiguous_margin`),
+- `unresolved` when even the best match is too poor to trust (`--genotype_unresolved_floor`),
+- `insufficient data` when too little of the gene was sequenced/covered (`--genotype_min_compared_bases`),
+- a note flagging a likely mixed infection when the consensus carries ambiguity codes consistent with a second reference genotype.
+
+One combined result file is written to `<outdir>/genotype/run_genotypes.tsv` (one row per sample per enabled gene - no per-sample files), and both the sample and run reports gain a "Genotyping" section.
+
+### `--genotype_genes_bed`
+
+BED file (chrom, start, end, gene) of the region(s) genotyping builds a consensus over. Defaults to the bundled UL55/UL73 regions on the Merlin reference.
+
+### `--gb_genotype_references` / `--gn_genotype_references`
+
+FASTA reference panels for gB/gN genotyping - one record per genotype, header = genotype label (e.g. `gB1`, `gN3a`). Default to the bundled panels (real GenBank sequences; see `CITATIONS.md`/source comments in the FASTA headers). Override if you want to use your own curated panel.
+
+### `--genotype_min_region_covered`
+
+Minimum fraction of the gene with non-`N` consensus before even attempting a call (default `0.05`). This is a sanity floor, **not** a "whole gene" requirement - `--genotype_min_compared_bases` below is the real quality gate for partial (e.g. amplicon-derived) coverage.
+
+### `--genotype_min_compared_bases`
+
+Minimum informative bases actually aligned against the best-matching reference to trust an identity score (default `300`). Since the informative region for both genes is well under the full gene length, an amplicon assay covering only that region is expected to pass this easily; this mainly guards against a near-empty or tiny sliver of consensus producing a spurious call.
+
+### `--genotype_ambiguous_margin`
+
+Report `ambiguous (X/Y)` rather than a single genotype if the best and second-best identity are within this many percentage points of each other (default `1.0`).
+
+### `--genotype_unresolved_floor`
+
+Report `unresolved` rather than forcing a call if the best identity match is below this percentage (default `90.0`).
+
 ### `--trimmer`
 
 Specify adaptor/quality trimming tool to be used. One of `'trimmomatic'` or `'fastp'`. Fastp is the default as it can auto-detect the adaptors to trim. If using trimmomatic, you will need to provide `--adapter_file <path/to/adapter.fasta>`. Note that if running on long-read sequences, this will default to fastplong for adaptor/quality trimming.

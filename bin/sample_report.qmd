@@ -1053,11 +1053,16 @@ summary_text <- paste(
 `r summary_text`
 
 ```{r genotype_analysis}
-# Strain genotyping (e.g. UL55/gB) - independent of resistance-mutation
-# calling above. genotype_file is empty unless a --genotype_* flag was set.
+# Strain genotyping (e.g. UL55/gB, UL73/gN) - independent of resistance-
+# mutation calling above. genotype_file is a space-separated list of
+# per-gene genotype.tsv paths (one per enabled --genotype_* gene), empty if
+# none were enabled.
 genotype_df <- NULL
-if (nzchar(genotype_file) && file.exists(genotype_file)) {
-  genotype_df <- read_tsv(genotype_file, show_col_types = FALSE) |>
+genotype_files <- strsplit(trimws(genotype_file), "\\s+")[[1]]
+genotype_files <- genotype_files[nzchar(genotype_files) & file.exists(genotype_files)]
+if (length(genotype_files) > 0) {
+  genotype_df <- genotype_files |>
+    map_dfr(~read_tsv(.x, show_col_types = FALSE)) |>
     rename(
       Gene = gene,
       Genotype = genotype,

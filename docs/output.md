@@ -79,6 +79,7 @@ The per-sample report has the following sections:
 - **Detected Mutations - Predicted Resistance** and **Key Mutations Characterised in the Literature** - the variants from `resistance.tsv`: a coloured drug-by-mutation grid of the predicted resistance level, then a table with the EC50 fold-change ratio, level of resistance and the supporting references for each mutation/drug combination.
 - **Mutations of Unknown Significance** - non-synonymous variants found in the CMV resistance genes (`UL27`, `UL51`, `UL54`, `UL56`, `UL89`, `UL97`; or genome-wide with `--protocol wgs`) that are **not** listed in the phenotype database. These have no established resistance interpretation - they may be natural strain polymorphisms, sequencing artefacts, or genuinely novel mutations that have not been phenotypically characterised. The pipeline cannot classify them, so it just lists them (position, change, gene, amino-acid change, predicted effect, and - for read input - frequency, depth and which callers found them) for a reviewer to weigh up.
 - **AMR Gene Coverage** (read input only) - every characterised resistance mutation has a known codon position (from `assets/resistance_sites.bed`). For each, the pipeline takes the mean read depth from the aligned BAM; where that is below `--min_depth` (default 40) the codon **could not be assessed** - a resistance mutation could be present there but there were not enough reads to call it. These codons are shaded red on the per-gene coverage plots and counted per gene in the "Codons below threshold" table. A report with no red means every known resistance locus had adequate coverage, so a "no resistance mutation detected" result can be trusted for those positions.
+- **Genotyping** (only when `--genotype_gb` and/or `--genotype_gn` are enabled) - a small table with the gB/gN strain genotype call(s) for that sample, the fraction of the gene covered, and the match confidence. Unrelated to resistance calling - see [Strain genotyping](#strain-genotyping) above.
 
 The run report drops the per-sample detail and shows a cross-sample resistance summary plus (read input) coverage/depth heatmaps or (fasta input) a per-sample, per-gene "records assessed" overview.
 
@@ -95,6 +96,18 @@ Fasta-input reports replace the coverage/depth sections with a "Regions Assessed
 </details>
 
 For read input this is built with `samtools consensus` (N below `--min_depth`, IUPAC codes above `--consensus_ambig_freq`); for `fasta` input it is the aligned, re-oriented submitted consensus.
+
+### Strain genotyping
+
+<details markdown="1">
+<summary>Output files</summary>
+
+- `genotype/run_genotypes.tsv` (only with `--genotype_gb` and/or `--genotype_gn`)
+  - One row per sample per enabled gene (`sample`, `gene`, `genotype`, `region_covered`, `match_confidence`, `notes`) - a single combined file for the whole run, not one file per sample.
+
+</details>
+
+Classifies `UL55` (gB) and/or `UL73` (gN) by nearest-neighbour percent identity against a curated reference panel of known genotypes - a strain-typing marker, entirely separate from resistance-mutation calling. Works from a full-gene (e.g. WGS) or partial (e.g. amplicon) consensus, provided enough of the gene's informative region is covered. `genotype` is a confident call (e.g. `gB2`), `ambiguous (X/Y)` when the top two matches are too close, `unresolved` when nothing matches well, or `insufficient data` when too little was covered; `notes` flags a likely mixed infection when the consensus carries ambiguity codes consistent with a second reference genotype. See `--genotype_gb` / `--genotype_gn` in [docs/usage.md](usage.md) for the full set of options and thresholds.
 
 ### FastQC
 
