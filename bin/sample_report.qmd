@@ -31,6 +31,7 @@ params:
   resistance: ""
   formatted: ""
   assessed: ""
+  genotype: ""
   bam: ""
   mut_bed: ""
   threshold: ""
@@ -77,6 +78,7 @@ pacman::p_load(Rsamtools, cowplot, tidyverse, GenomicAlignments, gt, knitr, rmar
 resis_output <- params$resistance
 all_muts_file <- params$formatted
 assessed_file <- params$assessed
+genotype_file <- params$genotype
 bam_file <- params$bam
 bed_file <- params$mut_bed
 protocol <- params$protocol
@@ -1049,6 +1051,36 @@ summary_text <- paste(
 ```
 
 `r summary_text`
+
+```{r genotype_analysis}
+# Strain genotyping (e.g. UL55/gB) - independent of resistance-mutation
+# calling above. genotype_file is empty unless a --genotype_* flag was set.
+genotype_df <- NULL
+if (nzchar(genotype_file) && file.exists(genotype_file)) {
+  genotype_df <- read_tsv(genotype_file, show_col_types = FALSE) |>
+    rename(
+      Gene = gene,
+      Genotype = genotype,
+      `Region covered` = region_covered,
+      `Match confidence` = match_confidence,
+      Notes = notes
+    ) |>
+    select(-sample)
+}
+```
+
+`r if (!is.null(genotype_df)) "# Genotyping" else ""`
+
+```{r genotype_table}
+if (!is.null(genotype_df)) {
+  genotype_df |>
+    gt() |>
+    sub_missing(missing_text = "") |>
+    tab_options(
+      table.font.size = if (!knitr::is_html_output()) "8pt" else "100%"
+    )
+}
+```
 
 # Detected Mutations - Predicted Resistance
 
