@@ -35,7 +35,7 @@ Both:
 3. Per-sample and per-run resistance reports ([`Quarto`](https://quarto.org/), HTML + PDF)
 4. Aggregate QC report ([`MultiQC`](http://multiqc.info/))
 
-<img width="2000" height="1512" alt="Pipeline Tube Map-selection" src="https://github.com/user-attachments/assets/4cdd5dfa-f34a-40c6-9db1-4c961b0bd69d" />
+<img width="2000" height="1512" alt="Pipeline Tube Map-selection" src="https://github.com/user-attachments/assets/1d514f4e-d91d-406f-8e65-16de6a4ed8f1" />
 
 ## Usage
 
