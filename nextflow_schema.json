@@ -454,6 +454,14 @@
                     "description": "BED (chrom, start, end, gene) of the gene region(s) to build a genotyping consensus over.",
                     "fa_icon": "far fa-file-code"
                 },
+                "genotype_min_depth": {
+                    "type": "integer",
+                    "default": 10,
+                    "minimum": 1,
+                    "description": "Depth below which a genotyping-consensus position becomes N.",
+                    "help_text": "Deliberately much lower than --min_depth: genotyping only needs one representative base per position (not a confident variant call the way resistance-mutation calling does), so a low-titer or limit-of-detection sample that can't reach --min_depth (40x by default) can often still be genotyped.",
+                    "fa_icon": "fas fa-layer-group"
+                },
                 "gb_genotype_references": {
                     "type": "string",
                     "format": "file-path",

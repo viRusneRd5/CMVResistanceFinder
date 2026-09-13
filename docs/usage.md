@@ -270,6 +270,10 @@ One combined result file is written to `<outdir>/genotype/run_genotypes.tsv` (on
 
 BED file (chrom, start, end, gene) of the region(s) genotyping builds a consensus over. Defaults to the bundled UL55/UL73 regions on the Merlin reference.
 
+### `--genotype_min_depth`
+
+Depth below which a genotyping-consensus position becomes `N` (default `10`). Deliberately much lower than `--min_depth` (default `40`, used for resistance-mutation calling): genotyping only needs one representative base per position, not a confident variant call, so a low-titer or limit-of-detection sample that can't reach `--min_depth` can often still be genotyped. If you still see a lot of `insufficient data` results, check actual depth over the UL55/UL73 regions before lowering this further.
+
 ### `--gb_genotype_references` / `--gn_genotype_references`
 
 FASTA reference panels for gB/gN genotyping - one record per genotype, header = genotype label (e.g. `gB1`, `gN3a`). Default to the bundled panels (real GenBank sequences; see `CITATIONS.md`/source comments in the FASTA headers). Override if you want to use your own curated panel.

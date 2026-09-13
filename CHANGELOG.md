@@ -18,8 +18,11 @@ Initial release of viRusneRd5/cmvresistancefinder, built with the [nf-core](http
 - Bundled simulated CMV amplicon test dataset with known spiked-in resistance mutations, exercised by `-profile test` and nf-test.
 - `conda_singularity` and `conda_docker` profiles.
 - Optional strain genotyping (`--genotype_gb`, `--genotype_gn`): classifies `UL55` (gB) and/or `UL73` (gN) by nearest-neighbour percent identity against a curated reference panel, from either a full-gene (WGS) or partial (amplicon) consensus. Entirely separate from resistance-mutation calling. One combined `<outdir>/genotype/run_genotypes.tsv` per run (no per-sample files), plus a "Genotyping" section in the sample and run reports.
+- `--genotype_min_depth` (default `10`): depth below which a genotyping-consensus position becomes `N`, independent of and much lower than `--min_depth` (used for resistance-mutation calling) - genotyping only needs one representative base per position, so low-titer/limit-of-detection samples that can't reach `--min_depth` can often still be genotyped.
 
 ### `Fixed`
+
+- gB genotyping's `gB3` reference (`M60930.1`) was a partial CDS (1002bp vs ~2721bp for gB1/gB2/gB4) covering a region that turned out to be nearly invariant between gB1/gB2/gB3 - unable to actually discriminate gB3 from the others, and a direct cause of unstable/spuriously-ambiguous or outright-wrong gB calls (confirmed against real production data spanning many repeat runs of the same sample). Replaced with `M85228.1` (complete CDS, strain C076A), the full-length gB3 representative used in a peer-reviewed real-time PCR gB-genotyping assay (Görzer et al.), verified to be genuinely divergent from gB1/gB2/gB4 (93-94% identity, consistent with their divergence from each other). Note: this also changes the Merlin reference genome's own UL55 classification from `gB3` to the now-correct `gB1`.
 
 ### `Dependencies`
 
