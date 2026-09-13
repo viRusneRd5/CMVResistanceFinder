@@ -317,7 +317,7 @@ workflow CMVRESISTANCEFINDER {
         GENE_CONSENSUS_GENOTYPE (
             ch_bam_bai,
             ch_genotype_genes_bed,
-            params.min_depth,
+            params.genotype_min_depth,
             params.consensus_ambig_freq
         )
         if (params.genotype_gb) {
