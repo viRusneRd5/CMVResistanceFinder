@@ -74,6 +74,8 @@ python bin/create_samplesheet.py /path/to/fastq_dir samplesheet.csv
 
 It recognises the common Illumina naming pattern (`SAMPLE_S1_L001_R1_001.fastq.gz`), simpler `SAMPLE_R1/R2.fastq.gz` and `SAMPLE_1/2.fastq.gz` patterns, and treats any FASTQ with no R1/R2 marker as single-end. It warns about anything it couldn't confidently pair up rather than guessing - always check the output before running the pipeline with it.
 
+The same command also picks up any `*.fa`/`*.fasta`/`*.fna` files in the directory and writes a second, `sample,fasta` samplesheet for `--input_type fasta` (default `samplesheet_fasta.csv`, or set `--file-out-fasta`) - one row per file, sample name taken from the filename. FASTQ and FASTA samples can't be mixed into a single pipeline run, so if a directory has both, you'll get two samplesheets and need to run the pipeline once per `--input_type`.
+
 ## Samplesheet input (FASTA / Sanger consensus)
 
 With `--input_type fasta` the samplesheet has just two columns:
