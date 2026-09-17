@@ -18,6 +18,7 @@ VARIANT_COLS = [
     "AF[*]",
     "detected_by",
     "n_callers",
+    "confidence",
     "mixed_population",
     "mixed_with_reference",
 ]

@@ -54,7 +54,7 @@ Which callers run depends on `--variant_caller` (default `all` = iVar + FreeBaye
 <summary>Output files</summary>
 
 - `variant_files/`
-  - `<sample>.merged.tsv`: annotated variants merged across the selected variant callers (read input) or from the consensus differ (fasta input). One row per variant, with a `detected_by` column listing which caller(s) found it.
+  - `<sample>.merged.tsv`: annotated variants merged across the selected variant callers (read input) or from the consensus differ (fasta input). One row per variant, with a `detected_by` column listing which caller(s) found it, and a `confidence` column (see below).
   - `<sample>.formatted.tsv`: the above with amino-acid changes normalised and synonymous variants dropped.
   - `<sample>.resistance.tsv`: the subset of variants that match a mutation in the phenotype database, one row per matching drug (and, for combination-mutation database entries, per entry). Carries the EC50 fold-change ratio, level of resistance and supporting references.
   - `<sample>.assessed.tsv` (**fasta input only**): one row per submitted gene record - the genome region it covered, alignment identity, whether it was reverse-complemented, and how many variants it yielded.
@@ -62,6 +62,16 @@ Which callers run depends on `--variant_caller` (default `all` = iVar + FreeBaye
 </details>
 
 For fasta input `resistance.tsv` and `formatted.tsv` also carry `mixed_population` / `mixed_with_reference` columns, derived from IUPAC ambiguity codes in the consensus.
+
+#### Confidence (read input only)
+
+Every variant (read input only - always `N/A` for fasta/Sanger consensus input, which has no read depth/frequency to base this on) gets a `confidence` tier - `High`, `Medium` or `Low` - based on how well-supported the call is, independent of its predicted resistance level:
+
+- **High**: detected by 2 or more callers, with an estimated 5 or more supporting reads (`DP × AF`), and neither the depth nor the frequency at that position is within 20% of the `--min_depth`/`--min_freq` floor.
+- **Low**: detected by only 1 caller, with fewer than 5 estimated supporting reads - this is the single-read/single-caller case that raising `--min_base_quality`/`--min_mapq` alone can't rule out (see the FAQ).
+- **Medium**: everything else - e.g. multiple callers agree but the call sits right at the depth/frequency floor, or good read support but only one caller.
+
+This is purely informational - **no variant is filtered out based on its confidence tier**, so sensitivity is unaffected; it exists to help you triage which findings to double-check first. It's highlighted (pink/yellow cell shading) in both the sample report's mutation tables and the run report's cross-sample summary, and the run report also has a dedicated "Confidence overview" section counting Low/Medium/High findings per sample.
 
 ### Reports
 
@@ -76,8 +86,8 @@ For fasta input `resistance.tsv` and `formatted.tsv` also carry `mixed_populatio
 
 The per-sample report has the following sections:
 
-- **Detected Mutations - Predicted Resistance** and **Key Mutations Characterised in the Literature** - the variants from `resistance.tsv`: a coloured drug-by-mutation grid of the predicted resistance level, then a table with the EC50 fold-change ratio, level of resistance and the supporting references for each mutation/drug combination.
-- **Mutations of Unknown Significance** - non-synonymous variants found in the CMV resistance genes (`UL27`, `UL51`, `UL54`, `UL56`, `UL89`, `UL97`; or genome-wide with `--protocol wgs`) that are **not** listed in the phenotype database. These have no established resistance interpretation - they may be natural strain polymorphisms, sequencing artefacts, or genuinely novel mutations that have not been phenotypically characterised. The pipeline cannot classify them, so it just lists them (position, change, gene, amino-acid change, predicted effect, and - for read input - frequency, depth and which callers found them) for a reviewer to weigh up.
+- **Detected Mutations - Predicted Resistance** and **Key Mutations Characterised in the Literature** - the variants from `resistance.tsv`: a coloured drug-by-mutation grid of the predicted resistance level, then a table with the EC50 fold-change ratio, level of resistance and the supporting references for each mutation/drug combination. Read input also gets a `Confidence` column (see [Confidence](#confidence-read-input-only) above), shaded to flag `Low`/`Medium` findings.
+- **Mutations of Unknown Significance** - non-synonymous variants found in the CMV resistance genes (`UL27`, `UL51`, `UL54`, `UL56`, `UL89`, `UL97`; or genome-wide with `--protocol wgs`) that are **not** listed in the phenotype database. These have no established resistance interpretation - they may be natural strain polymorphisms, sequencing artefacts, or genuinely novel mutations that have not been phenotypically characterised. The pipeline cannot classify them, so it just lists them (position, change, gene, amino-acid change, predicted effect, and - for read input - frequency, depth, which callers found them, and confidence) for a reviewer to weigh up.
 - **AMR Gene Coverage** (read input only) - every characterised resistance mutation has a known codon position (from `assets/resistance_sites.bed`). For each, the pipeline takes the mean read depth from the aligned BAM; where that is below `--min_depth` (default 40) the codon **could not be assessed** - a resistance mutation could be present there but there were not enough reads to call it. These codons are shaded red on the per-gene coverage plots and counted per gene in the "Codons below threshold" table. A report with no red means every known resistance locus had adequate coverage, so a "no resistance mutation detected" result can be trusted for those positions.
 - **Genotyping** (only when `--genotype_gb` and/or `--genotype_gn` are enabled) - a small table with the gB/gN strain genotype call(s) for that sample, the fraction of the gene covered, and the match confidence. Unrelated to resistance calling - see [Strain genotyping](#strain-genotyping) above.
 

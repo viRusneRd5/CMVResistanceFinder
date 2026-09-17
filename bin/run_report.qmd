@@ -41,6 +41,54 @@ library(htmltools)
 is_fasta <- params$input_type == "fasta"
 ```
 
+```{r confidence_overview}
+# Quick per-sample triage: how many detected resistance mutations in each
+# sample fall into each confidence tier (see the per-sample report for what
+# High/Medium/Low mean). Sorted so samples with Low-confidence findings are
+# easy to spot; this never filters anything, just flags where to look first.
+confidence_overview_df <- NULL
+if (!is_fasta) {
+  resistance_files_for_confidence <- list.files(pattern = "\\.resistance\\.tsv$")
+  if (length(resistance_files_for_confidence) > 0) {
+    confidence_raw <- resistance_files_for_confidence |>
+      purrr::map_dfr(
+        ~read_tsv(.x, col_types = cols(.default = col_character())) |>
+          mutate(Sample = tools::file_path_sans_ext(tools::file_path_sans_ext(basename(.x))))
+      )
+    if (nrow(confidence_raw) > 0 && "confidence" %in% names(confidence_raw)) {
+      confidence_overview_df <- confidence_raw |>
+        filter(confidence != "N/A") |>
+        distinct(Sample, CHROM, POS, REF, ALT, confidence) |>
+        count(Sample, confidence) |>
+        pivot_wider(names_from = confidence, values_from = n, values_fill = 0) |>
+        select(Sample, any_of(c("High", "Medium", "Low")))
+      if ("Low" %in% names(confidence_overview_df)) {
+        confidence_overview_df <- confidence_overview_df |> arrange(desc(Low))
+      }
+    }
+  }
+}
+```
+
+`r if (!is.null(confidence_overview_df)) "## Confidence overview" else ""`
+
+`r if (!is.null(confidence_overview_df)) "How many detected resistance mutations in each sample fall into each confidence tier - see the per-sample report for what High/Medium/Low mean. This is a triage signal, not a filter: every finding still appears in full in its sample report regardless of tier." else ""`
+
+```{r confidence_overview_table}
+if (!is.null(confidence_overview_df)) {
+  tbl_conf <- confidence_overview_df |> gt() |>
+    tab_options(table.font.size = if (!knitr::is_html_output()) "8pt" else "100%")
+  if ("Low" %in% names(confidence_overview_df)) {
+    tbl_conf <- tbl_conf |>
+      tab_style(
+        style = list(cell_fill(color = "#FFB6C1"), cell_text(weight = "bold")),
+        locations = cells_body(columns = Low, rows = Low > 0)
+      )
+  }
+  tbl_conf
+}
+```
+
 ```{r genotype_analysis}
 # Strain genotyping (e.g. UL55/gB) - independent of resistance-mutation
 # calling. run_genotypes is empty unless a --genotype_* flag was set.
@@ -261,6 +309,19 @@ if(nrow(resistance_df)==0){
     paste0("[@", keys, "]", collapse = "; ")
   }
 
+  # Collapse to the worst confidence tier present in the group - this table
+  # aggregates across every sample in the run, so highlight risk rather than
+  # hide it if any one detection was low-confidence. "N/A" (FASTA input) is
+  # excluded unless it's all there is.
+  confidence_levels <- c("Low", "Medium", "High")
+
+  format_confidence <- function(x){
+    x <- x[!is.na(x) & x != "N/A"]
+    if(length(x) == 0)
+      return("N/A")
+    as.character(min(factor(x, levels = confidence_levels, ordered = TRUE)))
+  }
+
   # Prefer exact single-mutation database entries; only fall back to compound
   # (combination-mutation) entries for a Gene/Mutation/Drug with no exact match.
   resis_use <- resistance_df |>
@@ -274,6 +335,7 @@ if(nrow(resistance_df)==0){
       `EC50 ratio` = format_ec50(EC50_ratio),
       `Level of resistance` = format_level(Level_of_resistance),
       Reference = format_refs(References),
+      Confidence = format_confidence(confidence),
       .groups = "drop"
     )
 
@@ -316,7 +378,7 @@ if(nrow(resistance_df)==0){
   summary_table <-
     summary_table |>
     mutate(Resistance = vapply(`Level of resistance`, highest_level, character(1))) |>
-    select(Gene, Mutation, Drug, Resistance) |>
+    select(Gene, Mutation, Confidence, Drug, Resistance) |>
     distinct() |>
     pivot_wider(
       names_from = Drug,
@@ -327,6 +389,9 @@ if(nrow(resistance_df)==0){
     select(
       Gene,
       Mutation,
+      # Confidence is only meaningful for read (FASTQ) input - FASTA/Sanger
+      # calls are always "N/A", so drop it there.
+      any_of(if (!is_fasta) "Confidence" else character(0)),
       Ganciclovir,
       Foscarnet,
       Cidofovir,
@@ -346,6 +411,15 @@ if(nrow(resistance_df)==0){
       "<span style='display:inline-block;width:12px;height:12px;background:#FF0000;border:1px solid black;'></span> High (>= 15 EC50 ratio)"
       )
     )
+
+  if (!is_fasta) {
+    confidence_note <- paste(
+      "Confidence reflects how well-supported a call is, independent of resistance level",
+      "(worst tier across every sample/detection contributing to this row) - see the per-sample report for the full definition.",
+      "No call is filtered out based on this - it's for triage, not a hard cutoff."
+    )
+    legend <- HTML(paste(as.character(legend), "<br>", confidence_note))
+  }
 
   tbl <- gt(summary_table)
   tbl <- tbl |>
@@ -523,8 +597,21 @@ if(nrow(resistance_df)==0){
         columns = Letermovir,
         rows = Letermovir == "High"
       )
-    ) |> tab_source_note(source_note = legend)
+    )
 
+  if (!is_fasta) {
+    tbl <- tbl |>
+      tab_style(
+        style = list(cell_fill(color = "#FFB6C1"), cell_text(weight = "bold")),
+        locations = cells_body(columns = Confidence, rows = Confidence == "Low")
+      ) |>
+      tab_style(
+        style = cell_fill(color = "#FFF3B0"),
+        locations = cells_body(columns = Confidence, rows = Confidence == "Medium")
+      )
+  }
+
+  tbl <- tbl |> tab_source_note(source_note = legend)
 
   tbl
 }

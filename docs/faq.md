@@ -46,6 +46,12 @@ These are pragmatic defaults rather than values from a formal analysis.
 
 You can change `--min_depth`, `--min_freq` and `--min_mapq` on the command line or in a params/config file.
 
+**Can I trust a mutation that was only found in a single read?**
+
+Not just because you've raised `--min_base_quality`/`--min_mapq` - those only rule out sequencer-level errors (a bad base call, an ambiguous alignment). They do nothing for errors introduced *before* sequencing, which dominate at n=1: a PCR error from an early amplification cycle gets copied into every read from that molecule with a perfectly good quality score and a perfectly good alignment (see the note on PCR duplicates above), and the same is true of chimeric reads, index hopping, or DNA damage artefacts. A single read, however clean, has no independent replication to rule any of that out.
+
+This is exactly what the `confidence` column (`Low`/`Medium`/`High` - see [docs/output.md](output.md#confidence-read-input-only)) is for: a `Low` call is one detected by only a single caller with few estimated supporting reads, regardless of base/mapping quality. Treat a `Low` call as provisional - check whether it's also seen on both strands and, ideally, in an independent resequencing replicate of the same specimen, before trusting it.
+
 
 **What do I need to provide if I want to run this pipeline with my own reference sequence?**
 
