@@ -220,6 +220,14 @@
                     "help_text": "Passed to all three callers (samtools mpileup `-Q` and iVar's own `-q` for iVar, `--min-base-quality` for FreeBayes, `-q`/`--min-alt-bq` for LoFreq). Set to 0 to disable. Read input only.",
                     "fa_icon": "fas fa-ruler-vertical"
                 },
+                "lofreq_max_depth": {
+                    "type": "integer",
+                    "default": 10000,
+                    "minimum": 1,
+                    "description": "Cap LoFreq's per-site pileup depth (its own `-d`/`--max-depth`).",
+                    "help_text": "LoFreq's own default (1000000) is effectively unbounded, so extremely deep sites (e.g. a limit-of-detection dilution panel, or any very high-titre amplicon sample) can take hours per sample as LoFreq's per-base test scales with depth. 10000x is comfortably above what's needed to call anything down to a few percent frequency (expected supporting reads = depth x frequency; a few hundred reads already gives an overwhelmingly significant test), so this loses no practical sensitivity at typical `--min_freq` thresholds - it only matters if you push `--min_freq` down near the sequencer's raw background error rate, where more depth alone won't help without additional error-correction (e.g. UMIs) anyway.",
+                    "fa_icon": "fas fa-compress-arrows-alt"
+                },
                 "include_frameshifts": {
                     "type": "boolean",
                     "description": "FASTA input only: also call frameshift indels from a consensus alignment. Off by default because Sanger-consensus frameshifts are frequently artefacts.",

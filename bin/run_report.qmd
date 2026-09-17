@@ -96,54 +96,6 @@ if (!is.null(confidence_overview_df)) {
 }
 ```
 
-```{r confidence_overview}
-# Quick per-sample triage: how many detected resistance mutations in each
-# sample fall into each confidence tier (see the per-sample report for what
-# High/Medium/Low mean). Sorted so samples with Low-confidence findings are
-# easy to spot; this never filters anything, just flags where to look first.
-confidence_overview_df <- NULL
-if (!is_fasta) {
-  resistance_files_for_confidence <- list.files(pattern = "\\.resistance\\.tsv$")
-  if (length(resistance_files_for_confidence) > 0) {
-    confidence_raw <- resistance_files_for_confidence |>
-      purrr::map_dfr(
-        ~read_tsv(.x, col_types = cols(.default = col_character())) |>
-          mutate(Sample = tools::file_path_sans_ext(tools::file_path_sans_ext(basename(.x))))
-      )
-    if (nrow(confidence_raw) > 0 && "confidence" %in% names(confidence_raw)) {
-      confidence_overview_df <- confidence_raw |>
-        filter(confidence != "N/A") |>
-        distinct(Sample, CHROM, POS, REF, ALT, confidence) |>
-        count(Sample, confidence) |>
-        pivot_wider(names_from = confidence, values_from = n, values_fill = 0) |>
-        select(Sample, any_of(c("High", "Medium", "Low")))
-      if ("Low" %in% names(confidence_overview_df)) {
-        confidence_overview_df <- confidence_overview_df |> arrange(desc(Low))
-      }
-    }
-  }
-}
-```
-
-`r if (!is.null(confidence_overview_df)) "## Confidence overview" else ""`
-
-`r if (!is.null(confidence_overview_df)) "How many detected resistance mutations in each sample fall into each confidence tier - see the per-sample report for what High/Medium/Low mean. This is a triage signal, not a filter: every finding still appears in full in its sample report regardless of tier." else ""`
-
-```{r confidence_overview_table}
-if (!is.null(confidence_overview_df)) {
-  tbl_conf <- confidence_overview_df |> gt() |>
-    tab_options(table.font.size = if (!knitr::is_html_output()) "8pt" else "100%")
-  if ("Low" %in% names(confidence_overview_df)) {
-    tbl_conf <- tbl_conf |>
-      tab_style(
-        style = list(cell_fill(color = "#FFB6C1"), cell_text(weight = "bold")),
-        locations = cells_body(columns = Low, rows = Low > 0)
-      )
-  }
-  tbl_conf
-}
-```
-
 ```{r genotype_analysis}
 # Strain genotyping (e.g. UL55/gB) - independent of resistance-mutation
 # calling. run_genotypes is empty unless a --genotype_* flag was set.
