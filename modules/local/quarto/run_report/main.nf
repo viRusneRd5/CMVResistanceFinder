@@ -12,6 +12,8 @@ process QUARTO_RUN_REPORT {
     val(n_samples) //number of samples in samplesheet to list on report
     val(input_type) //one of short-read, long-read or fasta
     path(run_genotypes) //run_genotypes.tsv from GENOTYPE_MERGE (empty list if no genotyping was enabled)
+    val(min_depth) //sequencing depth threshold used for the AMR gene coverage plot/table
+    val(min_base_quality) //minimum base quality used for variant calling
 
     output:
     path("${run_name}.html")
@@ -29,6 +31,8 @@ process QUARTO_RUN_REPORT {
         -P n_samples:${n_samples} \
         -P input_type:${input_type} \
         -P run_genotypes:"${run_genotypes}" \
+        -P min_depth:${min_depth} \
+        -P min_base_quality:${min_base_quality} \
         --output ${prefix}.html
     """
 

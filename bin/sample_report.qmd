@@ -35,6 +35,9 @@ params:
   bam: ""
   mut_bed: ""
   threshold: ""
+  min_freq: ""
+  min_base_quality: ""
+  min_mapq: ""
   reference: ""
   ul27_pos: ""
   ul51_pos: ""
@@ -61,6 +64,12 @@ Input type: **`r switch(params$input_type, "fasta" = "Consensus sequence (FASTA)
 
 `r if (params$input_type != "fasta") paste0("Sequencing depth threshold: **", params$threshold, "**") else ""`
 
+`r if (params$input_type != "fasta") paste0("Minimum variant frequency: **", params$min_freq, "**") else ""`
+
+`r if (params$input_type != "fasta") paste0("Minimum base quality: **", params$min_base_quality, "**") else ""`
+
+`r if (params$input_type != "fasta") paste0("Minimum mapping quality: **", params$min_mapq, "**") else ""`
+
 `r if (params$input_type != "fasta") paste0("Sequencing mode: **", if (tolower(params$single_end) == "true") "Single-end" else "Paired-end", "**") else ""`
 
 Reference sequence: **`r params$reference`**
@@ -84,6 +93,15 @@ bed_file <- params$mut_bed
 protocol <- params$protocol
 input_type <- params$input_type
 is_fasta <- input_type == "fasta"
+
+# Shared footnote text for the Confidence column, wherever it appears.
+confidence_footnote_text <- paste(
+  "Confidence reflects how well-supported a call is, independent of resistance level:",
+  "High = detected by >=2 callers with good read support, comfortably clear of --min_depth/--min_freq;",
+  "Medium = detected by only one caller, or right at the depth/frequency floor;",
+  "Low = detected by only one caller with few supporting reads - treat with particular caution",
+  "(see the FAQ on trusting single-read calls). No call is filtered out based on this - it's for triage, not a hard cutoff."
+)
 threshold <- as.numeric(params$threshold)
 reference <- params$reference
 ul27_pos <- params$ul27_pos
@@ -98,7 +116,7 @@ ul97_pos <- params$ul97_pos
 ```{r det_muts_analysis}
 #Need to perform the analysis first to be able to put values in the summary text.
 
-#Detected Mutations - Predicted Resistance
+#Detected Mutations - Predicted Phenotype
 resis_df <- read_tsv(resis_output)
 
 # Keep the raw (per-allele) matches for the anti-join that builds the
@@ -338,21 +356,6 @@ if(nrow(resis_df)!=0){
     )
   }
 
-  if (!is_fasta) {
-    confidence_note <- paste(
-      "Confidence reflects how well-supported a call is, independent of resistance level:",
-      "High = detected by >=2 callers with good read support, comfortably clear of --min_depth/--min_freq;",
-      "Medium = detected by only one caller, or right at the depth/frequency floor;",
-      "Low = detected by only one caller with few supporting reads - treat with particular caution",
-      "(see the FAQ on trusting single-read calls). No call is filtered out based on this - it's for triage, not a hard cutoff."
-    )
-    legend <- if (knitr::is_html_output()) {
-      HTML(paste(as.character(legend), "<br>", confidence_note))
-    } else {
-      paste(legend, confidence_note, sep = "\n")
-    }
-  }
-
   tbl <- gt(summary_table)
   tbl <- tbl |>
     tab_style(
@@ -533,9 +536,12 @@ if(nrow(resis_df)!=0){
 
   # Confidence highlighting - deliberately a different palette from the
   # drug-resistance-level colours above (this is a data-quality signal, not
-  # a resistance signal). Not present for FASTA/Sanger input.
+  # a resistance signal). Not present for FASTA/Sanger input. A footnote
+  # marker on the column header (rather than folding the explanation into
+  # the legend) points the reader straight at what it means.
   if (!is_fasta) {
     tbl <- tbl |>
+      opt_footnote_marks(marks = "standard") |>
       tab_style(
         style = list(cell_fill(color = "#FFB6C1"), cell_text(weight = "bold")),
         locations = cells_body(columns = Confidence, rows = Confidence == "Low")
@@ -543,6 +549,10 @@ if(nrow(resis_df)!=0){
       tab_style(
         style = cell_fill(color = "#FFF3B0"),
         locations = cells_body(columns = Confidence, rows = Confidence == "Medium")
+      ) |>
+      tab_footnote(
+        footnote = confidence_footnote_text,
+        locations = cells_column_labels(columns = Confidence)
       )
   }
 
@@ -922,6 +932,10 @@ if(nrow(insufficient) > 0){
       str_remove("^DEL") |>          # remove DEL
       str_remove("[A-Z*]$")      # remove final AA or stop codon
   ) |>
+  # Multiple catalogued mutations (e.g. A594V, A594T) can share one codon -
+  # collapse to one row per unique position before counting/listing, so
+  # "Affected codons" and "Codons below threshold" don't double up.
+  distinct(Gene, start, Codon) |>
   group_by(Gene) |>
   summarise(
     `Codons below threshold` = n(),
@@ -1138,7 +1152,7 @@ if (!is.null(genotype_df)) {
 }
 ```
 
-# Detected Mutations - Predicted Resistance
+# Detected Mutations - Predicted Phenotype
 
 ```{r det_mut_table}
 if(nrow(resis_df)==0){
@@ -1164,12 +1178,21 @@ if(nrow(resis_df)!=0){
   } else {
     key_tbl <- key_tbl |> select(-any_of("Confidence"))
   }
-  key_tbl |>
+  key_gt <- key_tbl |>
     gt() |>
     fmt_markdown(columns = Reference) |>
     tab_options(
       table.font.size = if (!knitr::is_html_output()) "8pt" else "100%"
     )
+  if (!is_fasta) {
+    key_gt <- key_gt |>
+      opt_footnote_marks(marks = "standard") |>
+      tab_footnote(
+        footnote = confidence_footnote_text,
+        locations = cells_column_labels(columns = Confidence)
+      )
+  }
+  key_gt
 }
 
 ```
@@ -1186,11 +1209,16 @@ if(nrow(all_muts)==0){
 } else {
   all_muts <- all_muts |> gt() |>
     cols_align(align = "center", columns = everything()) |>
+    # Give short columns like "Ref > Alt" (e.g. "T > C") a fixed width so
+    # adding Confidence doesn't squeeze them into wrapping one letter per
+    # line - long content (e.g. Effect) still wraps/grows as needed.
+    cols_width(`Ref > Alt` ~ px(70)) |>
     tab_options(
       table.font.size = if (!knitr::is_html_output()) "8pt" else "100%"
     )
   if (!is_fasta) {
     all_muts <- all_muts |>
+      opt_footnote_marks(marks = "standard") |>
       tab_style(
         style = list(cell_fill(color = "#FFB6C1"), cell_text(weight = "bold")),
         locations = cells_body(columns = Confidence, rows = Confidence == "Low")
@@ -1198,6 +1226,10 @@ if(nrow(all_muts)==0){
       tab_style(
         style = cell_fill(color = "#FFF3B0"),
         locations = cells_body(columns = Confidence, rows = Confidence == "Medium")
+      ) |>
+      tab_footnote(
+        footnote = confidence_footnote_text,
+        locations = cells_column_labels(columns = Confidence)
       )
   }
   if (!knitr::is_html_output()) {
@@ -1263,12 +1295,15 @@ if(protocol == "wgs" && !is_fasta){
 
 The database used to generate this report was **`r params$database_name`** version **`r params$database_version`**.
 
-*This report has been generated using the CMVResistanceFinder Nextflow pipeline found here: [viRusneRd5/CMVResistanceFinder](https://github.com/viRusneRd5/CMVResistanceFinder)*
-
-*This pipeline was written by Jocelyn Hume at the University of Queensland <j.hume@uq.edu.au>*
-
 ***The results in this report are for research use only and should not be used to inform clinical practice.***
 
 ***This report only contains a summary of the results. Full coverage tables and variant-caller metrics are available in the pipeline output directory and should be reviewed alongside this report.***
 
 `r if(nrow(resis_df)!=0) "# References" else ""`
+
+::: {#refs}
+:::
+
+<small>*This report has been generated using the CMVResistanceFinder Nextflow pipeline found here: [viRusneRd5/CMVResistanceFinder](https://github.com/viRusneRd5/CMVResistanceFinder)*
+
+*This pipeline was written by Jocelyn Hume at the University of Queensland <j.hume@uq.edu.au>*</small>
