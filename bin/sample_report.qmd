@@ -356,6 +356,21 @@ if(nrow(resis_df)!=0){
     )
   }
 
+  if (!is_fasta) {
+    confidence_note <- paste(
+      "Confidence reflects how well-supported a call is, independent of resistance level:",
+      "High = detected by >=2 callers with good read support, comfortably clear of --min_depth/--min_freq;",
+      "Medium = detected by only one caller, or right at the depth/frequency floor;",
+      "Low = detected by only one caller with few supporting reads - treat with particular caution",
+      "(see the FAQ on trusting single-read calls). No call is filtered out based on this - it's for triage, not a hard cutoff."
+    )
+    legend <- if (knitr::is_html_output()) {
+      HTML(paste(as.character(legend), "<br>", confidence_note))
+    } else {
+      paste(legend, confidence_note, sep = "\n")
+    }
+  }
+
   tbl <- gt(summary_table)
   tbl <- tbl |>
     tab_style(
