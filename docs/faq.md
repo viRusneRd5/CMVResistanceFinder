@@ -40,11 +40,11 @@ These are pragmatic defaults rather than values from a formal analysis.
 
 **5% variant frequency** is a reporting threshold near the lower end of what's commonly used for CMV NGS resistance testing; there is no field consensus. Note that at 40x a 5% call is supported by only ~2 reads, so treat near-threshold, low-depth calls with caution - and be aware that low-frequency resistant variants can still be clinically significant, as they can expand under drug selection.
 
-**40x depth** gives reasonable confidence for majority variant calls. **Base quality 20** (≈1% error) was also set pragmatically, as a permissive floor; a stricter value such as 30 would give more confidence in low-frequency calls but is not currently exposed as a parameter.
+**40x depth** gives reasonable confidence for majority variant calls. **Base quality** (`--min_base_quality`, default `20`, ≈1% error) was also set pragmatically, as a permissive floor; a stricter value such as 30 would give more confidence in low-frequency calls. It's passed to all three callers, so a base below this quality doesn't count towards a call regardless of which caller produced it; set `--min_base_quality 0` to disable it.
 
 **Minimum mapping quality** (`--min_mapq`) defaults to 20 and is passed to all three callers, so reads that aligned ambiguously are dropped before calling. The six resistance genes sit in the unique-long region of the genome rather than in CMV's repeat regions, so this has little effect on coverage there; set `--min_mapq 0` to disable it.
 
-You can change `--min_depth`, `--min_freq` and `--min_mapq` on the command line or in a params/config file.
+You can change `--min_depth`, `--min_freq`, `--min_mapq` and `--min_base_quality` on the command line or in a params/config file.
 
 **Can I trust a mutation that was only found in a single read?**
 

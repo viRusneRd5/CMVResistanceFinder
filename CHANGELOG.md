@@ -15,6 +15,7 @@ Initial release of viRusneRd5/cmvresistancefinder, built with the [nf-core](http
 - Per-sample and per-run resistance reports (`Quarto`, HTML + PDF) and an aggregate QC report (`MultiQC`).
 - `--protocol amplicon | wgs`: `amplicon` confines `FreeBayes`/`LoFreq` and the reports to the six resistance genes; `wgs` calls genome-wide with all callers.
 - `--min_mapq` (default 20) applied consistently across `iVar`, `FreeBayes` and `LoFreq`; `LoFreq` minimum variant frequency applied via `lofreq filter`.
+- `--min_base_quality` (default 20): minimum base quality to count a base towards a variant call, applied consistently across `iVar` (its own `-q` plus the feeding `samtools mpileup -Q`), `FreeBayes` (`--min-base-quality`) and `LoFreq` (`-q`/`--min-alt-bq`) - previously hardcoded to `20` in each caller with no way to change it.
 - Bundled simulated CMV amplicon test dataset with known spiked-in resistance mutations, exercised by `-profile test` and nf-test.
 - `conda_singularity` and `conda_docker` profiles.
 - Optional strain genotyping (`--genotype_gb`, `--genotype_gn`): classifies `UL55` (gB) and/or `UL73` (gN) by nearest-neighbour percent identity against a curated reference panel, from either a full-gene (WGS) or partial (amplicon) consensus. Entirely separate from resistance-mutation calling. One combined `<outdir>/genotype/run_genotypes.tsv` per run (no per-sample files), plus a "Genotyping" section in the sample and run reports.
