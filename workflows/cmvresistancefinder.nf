@@ -543,6 +543,9 @@ workflow CMVRESISTANCEFINDER {
                 ch_db_name,
                 params.cmv_resis_db_version,
                 params.min_depth,
+                params.min_freq,
+                params.min_base_quality,
+                params.min_mapq,
                 params.cmv_ref_name,
                 gene_positions_ch
             )
@@ -582,7 +585,9 @@ workflow CMVRESISTANCEFINDER {
             params.run_name,
             ch_total_count,
             params.input_type,
-            ch_run_genotypes
+            ch_run_genotypes,
+            params.min_depth,
+            params.min_base_quality
         )
     }
 
@@ -606,6 +611,9 @@ workflow CMVRESISTANCEFINDER {
                 ch_db_name,
                 params.cmv_resis_db_version,
                 params.min_depth,
+                params.min_freq,
+                params.min_base_quality,
+                params.min_mapq,
                 params.cmv_ref_name,
                 gene_positions_ch
             )
@@ -621,7 +629,9 @@ workflow CMVRESISTANCEFINDER {
             params.run_name,
             ch_total_count,
             params.input_type,
-            []
+            [],
+            params.min_depth,
+            params.min_base_quality
         )
     }
 

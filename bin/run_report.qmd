@@ -19,6 +19,8 @@ params:
   n_samples: ""
   input_type: "short-read"
   run_genotypes: ""
+  min_depth: ""
+  min_base_quality: ""
 ---
 
 # Summary
@@ -29,8 +31,6 @@ Number of samples run:  **`r params$n_samples`**
 
 Input type: **`r switch(params$input_type, "fasta" = "Consensus sequences (FASTA)", "long-read" = "Long-read sequencing (FASTQ)", "Short-read sequencing (FASTQ)")`**
 
-`r if (params$input_type != "fasta") "**Note:** any single-end samples in this run are flagged individually in their per-sample report - if generated on a platform other than paired-end Illumina (e.g. Ion Torrent), see that sample's report and the FAQ for a caveat on deletion/insertion (DEL/INS) mutation calls." else ""`
-
 ```{r}
 library(tidyverse)
 library(plotly)
@@ -39,6 +39,61 @@ library(gt)
 library(htmltools)
 
 is_fasta <- params$input_type == "fasta"
+
+# Shared footnote text for the Confidence column, matching the per-sample report.
+confidence_footnote_text <- paste(
+  "Confidence reflects how well-supported a call is, independent of resistance level",
+  "(worst tier across every sample/detection contributing to this row) - see the per-sample report for the full definition.",
+  "No call is filtered out based on this - it's for triage, not a hard cutoff."
+)
+```
+
+```{r confidence_overview}
+# Quick per-sample triage: how many detected resistance mutations in each
+# sample fall into each confidence tier (see the per-sample report for what
+# High/Medium/Low mean). Sorted so samples with Low-confidence findings are
+# easy to spot; this never filters anything, just flags where to look first.
+confidence_overview_df <- NULL
+if (!is_fasta) {
+  resistance_files_for_confidence <- list.files(pattern = "\\.resistance\\.tsv$")
+  if (length(resistance_files_for_confidence) > 0) {
+    confidence_raw <- resistance_files_for_confidence |>
+      purrr::map_dfr(
+        ~read_tsv(.x, col_types = cols(.default = col_character())) |>
+          mutate(Sample = tools::file_path_sans_ext(tools::file_path_sans_ext(basename(.x))))
+      )
+    if (nrow(confidence_raw) > 0 && "confidence" %in% names(confidence_raw)) {
+      confidence_overview_df <- confidence_raw |>
+        filter(confidence != "N/A") |>
+        distinct(Sample, CHROM, POS, REF, ALT, confidence) |>
+        count(Sample, confidence) |>
+        pivot_wider(names_from = confidence, values_from = n, values_fill = 0) |>
+        select(Sample, any_of(c("High", "Medium", "Low")))
+      if ("Low" %in% names(confidence_overview_df)) {
+        confidence_overview_df <- confidence_overview_df |> arrange(desc(Low))
+      }
+    }
+  }
+}
+```
+
+`r if (!is.null(confidence_overview_df)) "## Confidence overview" else ""`
+
+`r if (!is.null(confidence_overview_df)) "How many detected resistance mutations in each sample fall into each confidence tier - see the per-sample report for what High/Medium/Low mean. This is a triage signal, not a filter: every finding still appears in full in its sample report regardless of tier." else ""`
+
+```{r confidence_overview_table}
+if (!is.null(confidence_overview_df)) {
+  tbl_conf <- confidence_overview_df |> gt() |>
+    tab_options(table.font.size = if (!knitr::is_html_output()) "8pt" else "100%")
+  if ("Low" %in% names(confidence_overview_df)) {
+    tbl_conf <- tbl_conf |>
+      tab_style(
+        style = list(cell_fill(color = "#FFB6C1"), cell_text(weight = "bold")),
+        locations = cells_body(columns = Low, rows = Low > 0)
+      )
+  }
+  tbl_conf
+}
 ```
 
 ```{r confidence_overview}
@@ -160,6 +215,10 @@ coverage_summary <- coverage_df |>
 #coverage_summary
 ```
 
+`r if (!is_fasta) "## AMR Gene Coverage" else ""`
+
+`r if (!is_fasta) paste0("Percent of each resistance gene covered at or above the depth threshold used for variant calling (minimum depth: **", params$min_depth, "**, minimum base quality: **", params$min_base_quality, "**). Hover over a cell for the exact coverage and mean depth.") else ""`
+
 ```{r}
 #| eval: !expr '!isTRUE(is_fasta)'
 coverage_heatmap <- ggplot(
@@ -187,25 +246,6 @@ coverage_heatmap <- ggplot(
     )
 
 ggplotly(coverage_heatmap, tooltip="text")
-```
-
-```{r}
-#| eval: !expr '!isTRUE(is_fasta)'
-depth_heatmap <- ggplot(
-    coverage_df,
-    aes(
-        x = Gene,
-        y = Sample,
-        fill = MEANDEPTH
-    )
-) +
-    geom_tile() +
-    scale_fill_viridis_c(
-        name="Mean depth"
-    ) +
-    theme_minimal()
-
-ggplotly(depth_heatmap)
 ```
 
 `r if (exists("is_fasta") && is_fasta) "## Consensus records assessed" else ""`
@@ -236,6 +276,8 @@ if (exists("assessed_gt")) assessed_gt
 ```
 
 `r if (exists("is_fasta") && is_fasta) "Values show alignment identity and aligned length; [rc] marks records that were reverse-complemented to match the reference orientation. \"not assessed\" means no consensus record was supplied for that gene." else ""`
+
+## Key Mutation Summary Across All Samples
 
 ```{r}
 resistance_files <- list.files(
@@ -601,6 +643,7 @@ if(nrow(resistance_df)==0){
 
   if (!is_fasta) {
     tbl <- tbl |>
+      opt_footnote_marks(marks = "standard") |>
       tab_style(
         style = list(cell_fill(color = "#FFB6C1"), cell_text(weight = "bold")),
         locations = cells_body(columns = Confidence, rows = Confidence == "Low")
@@ -608,6 +651,10 @@ if(nrow(resistance_df)==0){
       tab_style(
         style = cell_fill(color = "#FFF3B0"),
         locations = cells_body(columns = Confidence, rows = Confidence == "Medium")
+      ) |>
+      tab_footnote(
+        footnote = confidence_footnote_text,
+        locations = cells_column_labels(columns = Confidence)
       )
   }
 

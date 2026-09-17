@@ -19,6 +19,9 @@ process QUARTO_SAMPLE_REPORT {
     val(database_name) //name of the database used
     val(cmv_resis_db_version) //date
     val(min_depth) //sequencing depth threshold for calling mutations
+    val(min_freq) //minimum variant allele frequency threshold for calling mutations
+    val(min_base_quality) //minimum base quality for variant calling
+    val(min_mapq) //minimum read mapping quality for variant calling
     val(cmv_merlin_name) //reference sequence name to list on report
     val(gene_positions) //this is the start/end positions of the AMR genes for plotting coverage.
 
@@ -55,6 +58,9 @@ mut_bed: "${mut_bed}"
 protocol: "${protocol}"
 input_type: "${input_type}"
 threshold: "${min_depth}"
+min_freq: "${min_freq}"
+min_base_quality: "${min_base_quality}"
+min_mapq: "${min_mapq}"
 reference: "${cmv_merlin_name}"
 ul27_pos: "${ul27_pos}"
 ul51_pos: "${ul51_pos}"
