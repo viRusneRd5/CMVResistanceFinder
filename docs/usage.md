@@ -366,6 +366,10 @@ Minimum read mapping quality for variant calling (default is `20`). Passed to al
 
 Minimum base quality to count a base towards a variant call (default is `20`, ≈1% expected error rate). Passed to all three callers - `samtools mpileup -Q` and ivar's own `-q` for ivar, `--min-base-quality` for freebayes, and `-q`/`--min-alt-bq` for lofreq (lofreq's own separate thresholds for any base vs. alternate-allele bases are both set to this same value). Set to `0` to disable.
 
+### `--lofreq_max_depth`
+
+Caps lofreq's own per-site pileup depth (`-d`/`--max-depth`, default `10000`) - lofreq's own default (1000000) is effectively unbounded, so an extremely deep site (e.g. a limit-of-detection dilution panel, or any very high-titre amplicon sample) can take hours per sample, since lofreq's per-base significance test scales with depth. `10000` is comfortably above what's needed to call anything down to a few percent frequency (expected supporting reads = depth × frequency; a few hundred reads is already an overwhelmingly significant call), so this costs no practical sensitivity at typical `--min_freq` thresholds - it only matters if you push `--min_freq` down near the sequencer's raw background error rate, where more depth alone won't help without additional error-correction (e.g. UMIs) anyway.
+
 ### `--skip_sample_report`
 
 Boolean to skip the generation of the individual sample reports. Default is `false`.
