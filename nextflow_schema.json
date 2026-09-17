@@ -212,6 +212,14 @@
                     "help_text": "Passed to all three callers (samtools mpileup `-q` for iVar, `--min-mapping-quality` for FreeBayes, `--min-mq` for LoFreq). Set to 0 to disable. Read input only.",
                     "fa_icon": "fas fa-crosshairs"
                 },
+                "min_base_quality": {
+                    "type": "integer",
+                    "default": 20,
+                    "minimum": 0,
+                    "description": "Minimum base quality to count a base towards a variant call.",
+                    "help_text": "Passed to all three callers (samtools mpileup `-Q` and iVar's own `-q` for iVar, `--min-base-quality` for FreeBayes, `-q`/`--min-alt-bq` for LoFreq). Set to 0 to disable. Read input only.",
+                    "fa_icon": "fas fa-ruler-vertical"
+                },
                 "include_frameshifts": {
                     "type": "boolean",
                     "description": "FASTA input only: also call frameshift indels from a consensus alignment. Off by default because Sanger-consensus frameshifts are frequently artefacts.",

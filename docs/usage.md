@@ -362,6 +362,10 @@ This sets the minimum variant frequency required to call a variant (default is `
 
 Minimum read mapping quality for variant calling (default is `20`). Passed to all three callers - `samtools mpileup -q` for the ivar pileup, `--min-mapping-quality` for freebayes and `--min-mq` for lofreq. Reads that aligned ambiguously are dropped before calling; set to `0` to disable. The six resistance genes are in the unique-long region rather than a repeat, so this has little effect on coverage there.
 
+### `--min_base_quality`
+
+Minimum base quality to count a base towards a variant call (default is `20`, ≈1% expected error rate). Passed to all three callers - `samtools mpileup -Q` and ivar's own `-q` for ivar, `--min-base-quality` for freebayes, and `-q`/`--min-alt-bq` for lofreq (lofreq's own separate thresholds for any base vs. alternate-allele bases are both set to this same value). Set to `0` to disable.
+
 ### `--skip_sample_report`
 
 Boolean to skip the generation of the individual sample reports. Default is `false`.
