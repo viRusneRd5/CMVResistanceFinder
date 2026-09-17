@@ -20,6 +20,7 @@ Initial release of viRusneRd5/cmvresistancefinder, built with the [nf-core](http
 - `conda_singularity` and `conda_docker` profiles.
 - Optional strain genotyping (`--genotype_gb`, `--genotype_gn`): classifies `UL55` (gB) and/or `UL73` (gN) by nearest-neighbour percent identity against a curated reference panel, from either a full-gene (WGS) or partial (amplicon) consensus. Entirely separate from resistance-mutation calling. One combined `<outdir>/genotype/run_genotypes.tsv` per run (no per-sample files), plus a "Genotyping" section in the sample and run reports.
 - `--genotype_min_depth` (default `10`): depth below which a genotyping-consensus position becomes `N`, independent of and much lower than `--min_depth` (used for resistance-mutation calling) - genotyping only needs one representative base per position, so low-titer/limit-of-detection samples that can't reach `--min_depth` can often still be genotyped.
+- `confidence` column (`High`/`Medium`/`Low`, `N/A` for fasta input) on every variant in `merged.tsv`/`formatted.tsv`/`resistance.tsv`: flags calls detected by only one caller and/or with few estimated supporting reads, or sitting right at the `--min_depth`/`--min_freq` floor. Purely informational - nothing is filtered out, so sensitivity is unaffected. Highlighted in both the sample report's mutation tables and a new run-report "Confidence overview" section (per-sample Low/Medium/High counts).
 
 ### `Fixed`
 

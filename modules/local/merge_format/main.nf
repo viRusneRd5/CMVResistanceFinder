@@ -21,13 +21,14 @@ process MERGE_FORMAT {
     task.ext.when == null || task.ext.when
 
     script:
-    //def args = task.ext.args ?: ''
+    def args = task.ext.args ?: ''
     def prefix = task.ext.prefix ?: "${meta.id}"
 
     """
     combine_snpsift_output.py \\
         --sample $prefix \\
         --output ${prefix}.merged.tsv \\
+        $args \\
         ${vcfs.join(' ')}
 
     format_variants.py \\

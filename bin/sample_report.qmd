@@ -199,6 +199,19 @@ if(nrow(resis_df)!=0){
       sprintf("%s–%s", fmt(min(nums)), fmt(max(nums)))
   }
 
+  # Collapse an ordered set of confidence tiers to the worst one present -
+  # highlight risk rather than hide it if a Gene/Mutation/Drug group spans
+  # more than one underlying variant call. "N/A" (FASTA/Sanger input, no
+  # depth/frequency concept) is excluded unless it's all there is.
+  confidence_levels <- c("Low", "Medium", "High")
+
+  format_confidence <- function(x){
+    x <- x[!is.na(x) & x != "N/A"]
+    if(length(x) == 0)
+      return("N/A")
+    as.character(min(factor(x, levels = confidence_levels, ordered = TRUE)))
+  }
+
   # Turn one or more ", "-delimited bibtex-key strings into "[@key1]; [@key2]".
   format_refs <- function(x){
 
@@ -226,6 +239,7 @@ if(nrow(resis_df)!=0){
       `Level of resistance` = format_level(Level_of_resistance),
       Reference = format_refs(References),
       `Mixed population` = dplyr::first(`Mixed population`),
+      Confidence = format_confidence(confidence),
       .groups = "drop"
     )
 }
@@ -277,7 +291,7 @@ if(nrow(resis_df)!=0){
   summary_table <-
     summary_table |>
     mutate(Resistance = vapply(`Level of resistance`, highest_level, character(1))) |>
-    select(Gene, Mutation, `Mixed population`, Drug, Resistance) |>
+    select(Gene, Mutation, `Mixed population`, Confidence, Drug, Resistance) |>
     distinct() |>
     pivot_wider(
       names_from = Drug,
@@ -291,6 +305,10 @@ if(nrow(resis_df)!=0){
       Gene,
       Mutation,
       any_of(if (is_fasta) "Mixed population" else character(0)),
+      # Confidence (High/Medium/Low) is only meaningful for read (FASTQ)
+      # input - FASTA/Sanger calls are always "N/A" here, so drop it there
+      # rather than show an uninformative column.
+      any_of(if (!is_fasta) "Confidence" else character(0)),
       Ganciclovir,
       Foscarnet,
       Cidofovir,
@@ -318,6 +336,21 @@ if(nrow(resis_df)!=0){
       "Unknown = not found in database;",
       "Susceptible < 2; Low 2 to <5; Medium 5 to <15; High >= 15."
     )
+  }
+
+  if (!is_fasta) {
+    confidence_note <- paste(
+      "Confidence reflects how well-supported a call is, independent of resistance level:",
+      "High = detected by >=2 callers with good read support, comfortably clear of --min_depth/--min_freq;",
+      "Medium = detected by only one caller, or right at the depth/frequency floor;",
+      "Low = detected by only one caller with few supporting reads - treat with particular caution",
+      "(see the FAQ on trusting single-read calls). No call is filtered out based on this - it's for triage, not a hard cutoff."
+    )
+    legend <- if (knitr::is_html_output()) {
+      HTML(paste(as.character(legend), "<br>", confidence_note))
+    } else {
+      paste(legend, confidence_note, sep = "\n")
+    }
   }
 
   tbl <- gt(summary_table)
@@ -496,7 +529,24 @@ if(nrow(resis_df)!=0){
         columns = Letermovir,
         rows = Letermovir == "High"
       )
-    ) |> tab_source_note(source_note = legend)
+    )
+
+  # Confidence highlighting - deliberately a different palette from the
+  # drug-resistance-level colours above (this is a data-quality signal, not
+  # a resistance signal). Not present for FASTA/Sanger input.
+  if (!is_fasta) {
+    tbl <- tbl |>
+      tab_style(
+        style = list(cell_fill(color = "#FFB6C1"), cell_text(weight = "bold")),
+        locations = cells_body(columns = Confidence, rows = Confidence == "Low")
+      ) |>
+      tab_style(
+        style = cell_fill(color = "#FFF3B0"),
+        locations = cells_body(columns = Confidence, rows = Confidence == "Medium")
+      )
+  }
+
+  tbl <- tbl |> tab_source_note(source_note = legend)
 
 }
 
@@ -528,12 +578,13 @@ round_csv_numbers <- function(x, digits = 2) {
   }, character(1), USE.NAMES = FALSE)
 }
 
-all_muts <- all_muts |> filter(`EFF[*].AA` != ".") |> rowwise() |> mutate(`Ref > Alt` = paste0(REF, " > ", ALT), Effect = `EFF[*].EFFECT`, Gene = `ANN[*].GENE`, Frequency = round_csv_numbers(gsub(",", ", ", gsub("lofreq:|freebayes:|ivar:", "", `AF[*]`))), Depth = round_csv_numbers(gsub(",", ", ", gsub("lofreq:|freebayes:|ivar:", "", `DP[*]`))), `Variant Callers` = gsub(",", ", ", detected_by)) |> select(POS, `Ref > Alt`, Gene, AA_change, Effect, Frequency, Depth, `Variant Callers`) |> arrange(POS)
+all_muts <- all_muts |> filter(`EFF[*].AA` != ".") |> rowwise() |> mutate(`Ref > Alt` = paste0(REF, " > ", ALT), Effect = `EFF[*].EFFECT`, Gene = `ANN[*].GENE`, Frequency = round_csv_numbers(gsub(",", ", ", gsub("lofreq:|freebayes:|ivar:", "", `AF[*]`))), Depth = round_csv_numbers(gsub(",", ", ", gsub("lofreq:|freebayes:|ivar:", "", `DP[*]`))), `Variant Callers` = gsub(",", ", ", detected_by), Confidence = confidence) |> select(POS, `Ref > Alt`, Gene, AA_change, Effect, Frequency, Depth, `Variant Callers`, Confidence) |> arrange(POS)
 
 # FASTA consensus input has no per-variant depth or frequency, and the single
-# "sanger" pseudo-caller column adds nothing - drop those columns.
+# "sanger" pseudo-caller column adds nothing (Confidence is always "N/A") -
+# drop those columns.
 if (is_fasta) {
-  all_muts <- all_muts |> ungroup() |> select(-Frequency, -Depth, -`Variant Callers`)
+  all_muts <- all_muts |> ungroup() |> select(-Frequency, -Depth, -`Variant Callers`, -Confidence)
 }
 ```
 
@@ -1110,6 +1161,8 @@ if(nrow(resis_df)!=0){
   key_tbl <- summary_df
   if (!is_fasta) {
     key_tbl <- key_tbl |> select(-any_of("Mixed population"))
+  } else {
+    key_tbl <- key_tbl |> select(-any_of("Confidence"))
   }
   key_tbl |>
     gt() |>
@@ -1136,6 +1189,17 @@ if(nrow(all_muts)==0){
     tab_options(
       table.font.size = if (!knitr::is_html_output()) "8pt" else "100%"
     )
+  if (!is_fasta) {
+    all_muts <- all_muts |>
+      tab_style(
+        style = list(cell_fill(color = "#FFB6C1"), cell_text(weight = "bold")),
+        locations = cells_body(columns = Confidence, rows = Confidence == "Low")
+      ) |>
+      tab_style(
+        style = cell_fill(color = "#FFF3B0"),
+        locations = cells_body(columns = Confidence, rows = Confidence == "Medium")
+      )
+  }
   if (!knitr::is_html_output()) {
     all_muts <- all_muts |> cols_hide(columns = Effect)
   }
