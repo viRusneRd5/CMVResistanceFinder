@@ -356,21 +356,11 @@ if(nrow(resis_df)!=0){
     )
   }
 
-  if (!is_fasta) {
-    confidence_note <- paste(
-      "Confidence reflects how well-supported a call is, independent of resistance level:",
-      "High = detected by >=2 callers with good read support, comfortably clear of --min_depth/--min_freq;",
-      "Medium = detected by only one caller, or right at the depth/frequency floor;",
-      "Low = detected by only one caller with few supporting reads - treat with particular caution",
-      "(see the FAQ on trusting single-read calls). No call is filtered out based on this - it's for triage, not a hard cutoff."
-    )
-    legend <- if (knitr::is_html_output()) {
-      HTML(paste(as.character(legend), "<br>", confidence_note))
-    } else {
-      paste(legend, confidence_note, sep = "\n")
-    }
+  legend <- if (knitr::is_html_output()) {
+    HTML(paste(as.character(legend), "<br>"))
+  } else {
+    paste(legend, sep = "\n")
   }
-
   tbl <- gt(summary_table)
   tbl <- tbl |>
     tab_style(
@@ -549,11 +539,9 @@ if(nrow(resis_df)!=0){
       )
     )
 
-  # Confidence highlighting - deliberately a different palette from the
-  # drug-resistance-level colours above (this is a data-quality signal, not
-  # a resistance signal). Not present for FASTA/Sanger input. A footnote
-  # marker on the column header (rather than folding the explanation into
-  # the legend) points the reader straight at what it means.
+  tbl <- tbl |> tab_source_note(source_note = legend)
+
+
   if (!is_fasta) {
     tbl <- tbl |>
       opt_footnote_marks(marks = "standard") |>
@@ -571,7 +559,6 @@ if(nrow(resis_df)!=0){
       )
   }
 
-  tbl <- tbl |> tab_source_note(source_note = legend)
 
 }
 
@@ -1040,7 +1027,7 @@ sentence1 <- mutation_summary(n_muts, n_genes)
 ```{r summary_sent2to4}
 if(nrow(resis_df)!=0){
 
-  long_df <- summary_table |> pivot_longer(cols = 3:7, names_to = "Drug", values_to = "Level")
+  long_df <- summary_table |> pivot_longer(cols = c("Ganciclovir", "Foscarnet", "Cidofovir", "Maribavir", "Letermovir"), names_to = "Drug", values_to = "Level")
 
   high_level <- long_df |>
     filter(Level == "High")
@@ -1207,7 +1194,8 @@ if(nrow(resis_df)!=0){
         locations = cells_column_labels(columns = Confidence)
       )
   }
-  key_gt
+  key_gt |>
+    cols_align(align = "center", columns = everything())
 }
 
 ```
@@ -1318,6 +1306,8 @@ The database used to generate this report was **`r params$database_name`** versi
 
 ::: {#refs}
 :::
+
+
 
 <small>*This report has been generated using the CMVResistanceFinder Nextflow pipeline found here: [viRusneRd5/CMVResistanceFinder](https://github.com/viRusneRd5/CMVResistanceFinder)*
 
