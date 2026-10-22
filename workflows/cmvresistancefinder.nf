@@ -289,7 +289,10 @@ workflow CMVRESISTANCEFINDER {
         ch_bam_bai,
         ch_fasta_fai
     )
-    multiqc_input_ch = SAMTOOLS_STATS.out.stats.map { meta, stats_file -> stats_file }.collect()
+    ch_multiqc_files = ch_multiqc_files.mix(
+        SAMTOOLS_STATS.out.stats.map { meta, stats_file -> stats_file }
+    )
+
 
     //
     // MODULE: Optionally export a per-gene consensus FASTA per sample
