@@ -34,6 +34,10 @@
 
 > Vasimuddin Md and Sanchit Misra and Heng Li and Srinivas Aluru. Efficient Architecture-Aware Acceleration of {BWA-MEM} for Multicore Systems. 2019.
 
+- [cutadapt](https://doi.org/10.14806/ej.17.1.200)
+
+> Martin M. Cutadapt removes adapter sequences from high-throughput sequencing reads. EMBnet.journal. 2011, 17(1):10-12.
+
 - [fastp](https://doi.org/10.1002/imt2.107)
 
 > Shifu Chen. 2025. fastp 1.0: An ultra-fast all-round tool for FASTQ data quality control and preprocessing. iMeta 2025

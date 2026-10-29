@@ -21,6 +21,7 @@ include { SAMTOOLS_STATS                             } from '../modules/nf-core/
 include { TRIMMOMATIC                                } from '../modules/nf-core/trimmomatic/main'
 include { FASTP                                      } from '../modules/nf-core/fastp/main'
 include { FASTPLONG                                  } from '../modules/nf-core/fastplong/main'
+include { CUTADAPT                                   } from '../modules/nf-core/cutadapt/main'
 
 //Align to reference
 include { BOWTIE2_ALIGN                              } from '../modules/nf-core/bowtie2/align/main'
@@ -180,6 +181,19 @@ workflow CMVRESISTANCEFINDER {
         println "Comment: You must provide an adapter fasta file for trimming and specify --adapter_file <path/to/adapter/file"
     } else if (params.trimmer == "trimmomatic" && params.adapter_file != null && params.input_type == "long-read"){
         println "Comment: This pipeline is not set up to perform trimming using trimmomatic on long-read sequencing data. Please use fastplong for trimming."
+    }
+
+    //
+    // MODULE: Run Cutadapt to trim PCR primer sequences from amplicon reads (after adapter trimming)
+    //
+    if (params.primer_sequences != null && params.input_type == "short-read") {
+        CUTADAPT(
+            ch_trimmed_fastq
+        )
+        ch_trimmed_fastq = CUTADAPT.out.reads
+        ch_multiqc_files = ch_multiqc_files.mix(CUTADAPT.out.log.collect{it[1]}.ifEmpty([]))
+    } else if (params.primer_sequences != null && params.input_type == "long-read") {
+        println "Comment: --primer_sequences is only applied to short-read input; long reads are not primer-trimmed."
     }
 
     if (params.input_type == "long-read") {
@@ -565,6 +579,9 @@ workflow CMVRESISTANCEFINDER {
             params.min_depth
         )
         ch_coverages = SAMTOOLS_COVERAGE.out.coverage.map { meta, coverage -> coverage }.collect()
+        ch_multiqc_files = ch_multiqc_files.mix(
+            SAMTOOLS_COVERAGE.out.coverage.map { meta, coverage -> coverage }
+        )
 
         //
         // MODULE: Summarise coverage/depth and mutation results for whole run and output run summary report using quarto.

@@ -302,6 +302,25 @@ Specify adaptor/quality trimming tool to be used. One of `'trimmomatic'` or `'fa
 
 For paired short reads, fastp also runs with `--correction` (uses base quality to fix per-base errors in the overlap between R1/R2, relevant for amplicon-style short inserts) and `--trim_poly_g` (forces poly-G trimming rather than relying on fastp's auto-detection of NextSeq/NovaSeq chemistry from the Illumina instrument ID, which public SRA data often lacks).
 
+### `--primer_sequences`
+
+Optional FASTA of your amplicon PCR primers, written 5'->3' as ordered (one record per primer; IUPAC degenerate bases are fine), e.g.:
+
+```fasta
+>UL54_1_LEFT
+TAGTYTCCACCAACGGCTG
+>UL54_1_RIGHT
+GTRTTTGTCCGCTTTCGTGG
+```
+
+When given, short reads are primer-trimmed with [Cutadapt](https://cutadapt.readthedocs.io/) after fastp/Trimmomatic adapter trimming and before host removal. Each primer is treated as a *non-internal* adapter: trimmed only where a read starts at/inside the primer (5') or ends at/inside the primer's reverse complement (3'); a primer sequence in the middle of a read (genuine template from an overlapping amplicon) is kept. Cutadapt runs with `--times 2 --overlap 8 --minimum-length 30`:
+
+- `--times 2` lets one read lose both a 5' primer and a 3' reverse-complement primer.
+- `--overlap 8` means at least 8 bases of a primer must match before anything is trimmed. This stops random 3-7 base matches from trimming reads at random.
+- `--minimum-length 30` drops pairs where either read is left shorter than 30 bp.
+
+Not applied to `--input_type long-read`, and not needed for capture or whole-genome data. See the FAQ, "Should I trim amplicon primers?", for when it matters.
+
 ### `--skip_host_removal`
 
 This allows you to skip performing host read removal using hostile. I would only recommend this if your pipeline already performs host-removal prior to running this pipeline, or if you are running public sequencing data where host-removal has presumably already occurred, but it doesn't hurt to leave this on.
@@ -360,11 +379,11 @@ This sets the minimum variant frequency required to call a variant (default is `
 
 ### `--min_mapq`
 
-Minimum read mapping quality for variant calling (default is `20`). Passed to all three callers - `samtools mpileup -q` for the ivar pileup, `--min-mapping-quality` for freebayes and `--min-mq` for lofreq. Reads that aligned ambiguously are dropped before calling; set to `0` to disable. The six resistance genes are in the unique-long region rather than a repeat, so this has little effect on coverage there.
+Minimum read mapping quality for variant calling (default is `30`). Passed to all three callers - `samtools mpileup -q` for the ivar pileup, `--min-mapping-quality` for freebayes and `--min-mq` for lofreq. Reads that aligned ambiguously are dropped before calling; set to `0` to disable. The six resistance genes are in the unique-long region rather than a repeat, so this has little effect on coverage there.
 
 ### `--min_base_quality`
 
-Minimum base quality to count a base towards a variant call (default is `20`, ≈1% expected error rate). Passed to all three callers - `samtools mpileup -Q` and ivar's own `-q` for ivar, `--min-base-quality` for freebayes, and `-q`/`--min-alt-bq` for lofreq (lofreq's own separate thresholds for any base vs. alternate-allele bases are both set to this same value). Set to `0` to disable.
+Minimum base quality to count a base towards a variant call (default is `30`, ≈0.1% expected error rate; use `20` for runs or platforms with lower base qualities). Passed to all three callers - `samtools mpileup -Q` and ivar's own `-q` for ivar, `--min-base-quality` for freebayes, and `-q`/`--min-alt-bq` for lofreq (lofreq's own separate thresholds for any base vs. alternate-allele bases are both set to this same value). Set to `0` to disable.
 
 ### `--lofreq_max_depth`
 

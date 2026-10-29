@@ -127,6 +127,15 @@
                     "description": "Adapter FASTA for Trimmomatic. Required when `--trimmer trimmomatic` is used with short reads.",
                     "fa_icon": "far fa-file-code"
                 },
+                "primer_sequences": {
+                    "type": "string",
+                    "format": "file-path",
+                    "exists": true,
+                    "pattern": "^\\S+\\.f(n)?a(sta)?$",
+                    "description": "FASTA of amplicon PCR primer sequences (5'->3', as ordered; IUPAC codes allowed). When given, short reads are primer-trimmed with Cutadapt after adapter trimming.",
+                    "help_text": "Primer-derived bases carry the primer's sequence rather than the sample's, so they can mask a real variant under a primer binding site. Each primer is trimmed only where a read starts at/inside the primer, or ends at/inside its reverse complement - a primer sequence in the middle of a read (genuine template from an overlapping amplicon) is left alone. Not applied to `--input_type long-read`.",
+                    "fa_icon": "fas fa-cut"
+                },
                 "skip_host_removal": {
                     "type": "boolean",
                     "description": "Skip host-read removal with Hostile.",
@@ -206,7 +215,7 @@
                 },
                 "min_mapq": {
                     "type": "integer",
-                    "default": 20,
+                    "default": 30,
                     "minimum": 0,
                     "description": "Minimum read mapping quality for variant calling.",
                     "help_text": "Passed to all three callers (samtools mpileup `-q` for iVar, `--min-mapping-quality` for FreeBayes, `--min-mq` for LoFreq). Set to 0 to disable. Read input only.",
@@ -214,7 +223,7 @@
                 },
                 "min_base_quality": {
                     "type": "integer",
-                    "default": 20,
+                    "default": 30,
                     "minimum": 0,
                     "description": "Minimum base quality to count a base towards a variant call.",
                     "help_text": "Passed to all three callers (samtools mpileup `-Q` and iVar's own `-q` for iVar, `--min-base-quality` for FreeBayes, `-q`/`--min-alt-bq` for LoFreq). Set to 0 to disable. Read input only.",

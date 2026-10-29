@@ -250,6 +250,25 @@ if(nrow(resis_df)!=0){
     filter(if(any(match_type == "exact")) match_type == "exact" else TRUE) |>
     ungroup()
 
+  round_csv_numbers <- function(x, digits = 2) {
+    vapply(as.character(x), function(v) {
+      parts <- trimws(strsplit(v, ",")[[1]])
+      num <- suppressWarnings(as.numeric(parts))
+      ok <- !is.na(num)
+      parts[ok] <- as.character(round(num[ok], digits))
+      paste(parts, collapse = ", ")
+    }, character(1), USE.NAMES = FALSE)
+  }
+
+  # A Gene/Mutation/Drug group can hold more than one row (several database
+  # entries for the same call, or - for FASTA input - two alleles collapsed
+  # into one mixed-codon label). Collapse the per-call values to one string so
+  # summarise() returns exactly one row per group; distinct calls are "; "-separated.
+  collapse_calls <- function(x) {
+    x <- unique(x[!is.na(x)])
+    if (length(x) == 0) NA_character_ else paste(x, collapse = "; ")
+  }
+
   summary_df <- resis_use |>
     group_by(Gene, Mutation, Drug) |>
     summarise(
@@ -257,6 +276,9 @@ if(nrow(resis_df)!=0){
       `Level of resistance` = format_level(Level_of_resistance),
       Reference = format_refs(References),
       `Mixed population` = dplyr::first(`Mixed population`),
+      Frequency = collapse_calls(round_csv_numbers(gsub(",", ", ", gsub("lofreq:|freebayes:|ivar:", "", `AF[*]`)))),
+      Depth = collapse_calls(round_csv_numbers(gsub(",", ", ", gsub("lofreq:|freebayes:|ivar:", "", `DP[*]`)))),
+      `Variant Callers` = collapse_calls(gsub(",", ", ", detected_by)),
       Confidence = format_confidence(confidence),
       .groups = "drop"
     )
@@ -1178,7 +1200,9 @@ if(nrow(resis_df)!=0){
   if (!is_fasta) {
     key_tbl <- key_tbl |> select(-any_of("Mixed population"))
   } else {
-    key_tbl <- key_tbl |> select(-any_of("Confidence"))
+    # FASTA consensus input has no depth/frequency and a single "sanger"
+    # pseudo-caller, so these columns carry no information there.
+    key_tbl <- key_tbl |> select(-any_of(c("Confidence", "Frequency", "Depth", "Variant Callers")))
   }
   key_gt <- key_tbl |>
     gt() |>
