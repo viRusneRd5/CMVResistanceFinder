@@ -34,15 +34,15 @@ Removing genuine PCR duplicates from amplicon data requires unique molecular ide
 
 (For hybridisation-capture whole-genome data, where fragmentation is random and duplicates behave normally, deduplication would be appropriate. The `wgs` protocol does not currently do this.)
 
-**Why is the default threshold's minimum 40 read depth, read quality 20, 0.05 (5%) variant frequency etc.?**
+**Why is the default threshold's minimum 40 read depth, read quality 30, 0.05 (5%) variant frequency etc.?**
 
 These are pragmatic defaults rather than values from a formal analysis.
 
 **5% variant frequency** is a reporting threshold near the lower end of what's commonly used for CMV NGS resistance testing; there is no field consensus. Note that at 40x a 5% call is supported by only ~2 reads, so treat near-threshold, low-depth calls with caution - and be aware that low-frequency resistant variants can still be clinically significant, as they can expand under drug selection.
 
-**40x depth** gives reasonable confidence for majority variant calls. **Base quality** (`--min_base_quality`, default `20`, ≈1% error) was also set pragmatically, as a permissive floor; a stricter value such as 30 would give more confidence in low-frequency calls. It's passed to all three callers, so a base below this quality doesn't count towards a call regardless of which caller produced it; set `--min_base_quality 0` to disable it.
+**40x depth** gives reasonable confidence for majority variant calls. **Base quality** (`--min_base_quality`, default `30`, ≈0.1% error) was raised from an earlier default of `20` (≈1% error). At 20, sequencing errors alone can put a substitution at around 1% frequency. That is too close to the 5% reporting threshold when a call rests on only a few reads. Q30 is also the standard Illumina quality benchmark, and most bases on a good run pass it. If your run has poorer quality, or you're running a platform with lower nominal base qualities, lower it (e.g. `--min_base_quality 20`) to keep coverage. It's passed to all three callers, so a base below this quality doesn't count towards a call regardless of which caller produced it; set `--min_base_quality 0` to disable it.
 
-**Minimum mapping quality** (`--min_mapq`) defaults to 20 and is passed to all three callers, so reads that aligned ambiguously are dropped before calling. The six resistance genes sit in the unique-long region of the genome rather than in CMV's repeat regions, so this has little effect on coverage there; set `--min_mapq 0` to disable it.
+**Minimum mapping quality** (`--min_mapq`) defaults to 30 (raised from 20). It is passed to all three callers, so reads that aligned ambiguously are dropped before calling. The six resistance genes sit in the unique-long region of the genome rather than in CMV's repeat regions, so this has little effect on coverage there; set `--min_mapq 0` to disable it.
 
 You can change `--min_depth`, `--min_freq`, `--min_mapq` and `--min_base_quality` on the command line or in a params/config file.
 
@@ -98,13 +98,19 @@ If you want to use your own database, then as long as you follow the same format
 
 This depends on how large your fastq files are, and whether you are running this on a HPC or a laptop. Running 33 paired end Illumina fastq files sequenced on a MiSeq i100 5M 300-cycle kit took less than 10 minutes to run with 48GB memory and 24 threads and using cached conda/singularity containers.
 
-**Why doesn't this pipeline perform primer trimming using IVAR trim?**
+**Should I trim amplicon primers (`--primer_sequences`)?**
 
-This pipeline is meant to be usable across many sequencing assays - different amplicon panels, hybridisation capture, whole genome - without asking each user to supply an assay-specific primer BED file and tune trimming settings. `ivar trim` needs exactly that, so it isn't built in.
+Bases that come from a PCR primer carry the primer's sequence, not the sample's. If a variant sits under a primer-binding site, reads that start in that primer report the reference base there, which can hide the variant or lower its frequency. Primer trimming removes those bases before alignment.
 
-For our own amplicon assay this is also fine scientifically: the primers were designed so that no primer-binding site overlaps (or sits within a read length of) a codon that is interrogated for resistance. Primer-derived sequence therefore can't mask a resistance variant or bias its allele frequency, because the reads covering a resistance codon are always template-derived.
+Primer trimming is optional because many assays don't need it. Hybridisation capture and whole-genome data have no primers. For our own amplicon assay, no catalogued resistance codon overlaps a primer-binding site. Primer-derived bases therefore can't mask a catalogued resistance mutation, although they can still affect variants of unknown significance that fall under a primer. If any primer in your scheme overlaps a codon you care about, supply `--primer_sequences`.
 
-If your primer scheme does place primers within a read length of a resistance codon, trim them externally (e.g. `ivar trim`, `samtools ampliconclip`, fgbio) before running this pipeline - note that this workflow has not been tested on externally primer-trimmed input.
+How it works: each primer is trimmed only where a read **starts** at or inside the primer, or **ends** at or inside its reverse complement. A primer sequence found in the *middle* of a read is left alone. With overlapping (tiled) amplicons, that mid-read sequence is genuine template from the neighbouring amplicon. A plain Cutadapt `-a`/`-g` trim would delete it, together with everything after or before it in the read. On a tagmentation-based (e.g. Illumina DNA Prep) library of our tiled ~1.1 kb amplicons, >99% of mid-read primer matches were genuine template. Only ~3% of reads started inside a primer, so that is the share of reads expected to be trimmed.
+
+Why Cutadapt rather than `ivar trim`? `ivar trim` trims by position after alignment and needs a primer BED file in the correct coordinate system. Cutadapt works from just the primer sequences, which every lab already has.
+
+**Why doesn't this pipeline perform primer trimming using `ivar trim`?**
+
+See above: optional sequence-based primer trimming is available with `--primer_sequences`. If you'd rather use position-based trimming (e.g. `ivar trim`, `samtools ampliconclip`, fgbio), run it externally before the pipeline. This workflow hasn't been tested on externally primer-trimmed input.
 
 **Can I run this pipeline with Ion Torrent (or other non-Illumina short-read) data?**
 

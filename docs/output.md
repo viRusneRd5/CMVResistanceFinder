@@ -11,6 +11,7 @@ The directories listed below will be created in the results directory after the 
 The pipeline is built using [Nextflow](https://www.nextflow.io/) and processes data using the following steps:
 
 - [FastQC](#fastqc) - Raw read QC (read input only)
+- [Cutadapt](#cutadapt) - optional amplicon primer trimming (`--primer_sequences`, short-read input only)
 - [Per-caller variant files](#per-caller-variant-files) - raw and SnpEff/SnpSift-annotated VCFs from each variant caller
 - [Variant and resistance files](#variant-and-resistance-files) - per-sample merged variant, resistance and (fasta input) assessed-region tables
 - [Reports](#reports) - per-sample and per-run HTML/PDF resistance reports
@@ -133,6 +134,19 @@ Classifies `UL55` (gB) and/or `UL73` (gN) by nearest-neighbour percent identity 
 Read QC, trimming, host removal, alignment and per-caller variant calling only run for read input (`--input_type short-read` or `long-read`), not for `--input_type fasta`.
 
 [FastQC](http://www.bioinformatics.babraham.ac.uk/projects/fastqc/) gives general quality metrics about your sequenced reads. It provides information about the quality score distribution across your reads, per base sequence content (%A/T/G/C), adapter contamination and overrepresented sequences. For further reading and documentation see the [FastQC help pages](http://www.bioinformatics.babraham.ac.uk/projects/fastqc/Help/).
+
+### Cutadapt
+
+<details markdown="1">
+<summary>Output files</summary>
+
+- `cutadapt/`
+  - `*_cutadapt.cutadapt.log`: per-sample Cutadapt report - how many reads/bases were trimmed, and per-primer trimming counts and removed-sequence lengths (also summarised in MultiQC).
+  - `*_cutadapt_1.trim.fastq.gz`, `*_cutadapt_2.trim.fastq.gz` (or `*_cutadapt.trim.fastq.gz` for single-end): primer-trimmed reads, which go on to host removal and alignment.
+
+</details>
+
+Only produced when `--primer_sequences` is given (short-read input). A sanity check: for a tagmentation-based library of amplicons, expect only a small share of reads (a few %) to be trimmed. If most reads lose a primer, your library starts every read at a primer (e.g. ligation of whole amplicons), which is also fine. If many reads are dropped as too short, check the primer FASTA. See [docs/usage.md](usage.md#--primer_sequences).
 
 ### MultiQC
 

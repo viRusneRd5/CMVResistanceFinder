@@ -20,7 +20,7 @@
 Read input:
 
 1. Read QC ([`FastQC`](https://www.bioinformatics.babraham.ac.uk/projects/fastqc/))
-2. Adapter/quality trimming ([`fastp`](https://github.com/OpenGene/fastp), [`Trimmomatic`](http://www.usadellab.org/cms/?page=trimmomatic) or, for long reads, [`fastplong`](https://github.com/OpenGene/fastplong))
+2. Adapter/quality trimming ([`fastp`](https://github.com/OpenGene/fastp), [`Trimmomatic`](http://www.usadellab.org/cms/?page=trimmomatic) or, for long reads, [`fastplong`](https://github.com/OpenGene/fastplong)), plus optional amplicon primer trimming ([`Cutadapt`](https://cutadapt.readthedocs.io/), `--primer_sequences`)
 3. Optional host-read removal ([`Hostile`](https://github.com/bede/hostile)) and taxonomic classification ([`Kraken2`](https://ccb.jhu.edu/software/kraken2/))
 4. Alignment to the CMV reference ([`minimap2`](https://github.com/lh3/minimap2), [`Bowtie2`](https://bowtie-bio.sourceforge.net/bowtie2/) or [`BWA-MEM3`](https://github.com/bwa-mem2/bwa-mem2))
 5. Variant calling with one or more of [`iVar`](https://andersen-lab.github.io/ivar/html/), [`FreeBayes`](https://github.com/freebayes/freebayes) and [`LoFreq`](https://csb5.github.io/lofreq/)
