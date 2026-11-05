@@ -12,7 +12,11 @@ process SNPSIFT_EXTRACTFIELDS {
 
     output:
     tuple val(meta), path("*.snpsift.txt"), emit: txt
-    tuple val("${task.process}"), val('snpsift'), eval("SnpSift -version 2>&1 | grep -oE '[0-9]+\\.[0-9]+[a-z]?'"), emit: versions_snpsift, topic: versions
+    // Anchor on the "SnpSift version X" banner line: SnpSift has no -version flag (it prints the
+    // help page), and any other decimal it occasionally prints (e.g. an elapsed time like
+    // "0.001s") would otherwise become extra lines in the versions YAML and break MultiQC.
+    // -noLog stops SnpSift's usage-statistics/version-check request to its server.
+    tuple val("${task.process}"), val('snpsift'), eval("SnpSift -noLog -h 2>&1 | grep -oE 'SnpSift version [0-9]+\\.[0-9]+[a-z]?' | head -n 1 | cut -d' ' -f3"), emit: versions_snpsift, topic: versions
 
     when:
     task.ext.when == null || task.ext.when

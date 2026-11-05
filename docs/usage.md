@@ -118,7 +118,7 @@ nextflow run viRusneRd5/cmvresistancefinder \
    --input samplesheet.csv \
    --outdir <OUTDIR> \
    --protocol amplicon \
-   --hostile_reference_path <path/to/hostile_reference> \
+   --nohuman_db <path/to/nohuman_db/HPRC.r2> \
    --kraken2_db <path/to/kraken2_virus_db \
    --report_author <your_name/institute> \
    --run_name <run_name>
@@ -154,7 +154,7 @@ with:
 input: './samplesheet.csv'
 outdir: './results/'
 protocol: 'amplicon'
-hostile_reference_path: '<path/to/hostile_reference>'
+nohuman_db: '<path/to/nohuman_db/HPRC.r2>'
 kraken2_db: '<path/to/kraken2_virus_db'
 run_name: '<run_name>'
 report_author: '<report_author/institution>'
@@ -323,7 +323,28 @@ Not applied to `--input_type long-read`, and not needed for capture or whole-gen
 
 ### `--skip_host_removal`
 
-This allows you to skip performing host read removal using hostile. I would only recommend this if your pipeline already performs host-removal prior to running this pipeline, or if you are running public sequencing data where host-removal has presumably already occurred, but it doesn't hurt to leave this on.
+This allows you to skip host read removal (nohuman or Hostile). I would only recommend this if your pipeline already performs host-removal prior to running this pipeline, or if you are running public sequencing data where host-removal has presumably already occurred, but it doesn't hurt to leave this on.
+
+### `--host_removal_tool`
+
+Host-read removal tool: `nohuman` (default) or `hostile`. Both remove human reads before Kraken2, FastQC and alignment, and run for short- and long-read input.
+
+- **`nohuman`** classifies each read (or read pair) with Kraken2 against a human pangenome database built from the Human Pangenome Reference Consortium (HPRC) assemblies. Because it covers many human genomes rather than one reference, it catches human reads from sequence missing from a single reference genome. It needs `--nohuman_db`.
+- **`hostile`** aligns reads to a single human reference (by default T2T-CHM13 plus HLA alleles) and removes those that map. It needs `--hostile_reference_path` and `--hostile_index`.
+
+Read pairs are kept or removed together by both tools. Removing host reads matters for data sharing, so human reads aren't published with the data. It also shrinks the read set going into alignment, but CMV calls themselves are rarely affected, because human reads don't map to the CMV reference.
+
+### `--nohuman_db`
+
+Path to the nohuman database, required for the default `--host_removal_tool nohuman`. Download it once (about 6 GB for the default `HPRC.r2` version; Kraken2 loads it into memory, so the task needs roughly 8 GB or more):
+
+```bash
+nohuman --download --db /path/to/nohuman_db
+```
+
+This creates a version folder, e.g. `/path/to/nohuman_db/HPRC.r2`. Pass that version folder: `--nohuman_db /path/to/nohuman_db/HPRC.r2`. You can also pass the parent folder (`/path/to/nohuman_db`). nohuman then uses the newest version installed there, so a later download would silently change which database your runs use. Pointing at the version folder keeps runs reproducible. `nohuman --list-db-versions` lists the available versions.
+
+nohuman's Kraken2 report for each sample (`*.nohuman.kraken2.report.txt`) and its log (`*.nohuman.log`, including the number and percentage of reads classified as human) are published to `<outdir>/nohuman/`.
 
 ### `--hostile_index`
 
@@ -331,7 +352,7 @@ The name of the hostile reference index used, e.g. `'human-t2t-hla'`.
 
 ### `--hostile_reference_path`
 
-If you want to perform host-removal, you will need to download the hostile reference and index using bowtie2 build, as per below:
+Only needed with `--host_removal_tool hostile`. To use Hostile, download the hostile reference and index using bowtie2 build, as per below:
 
 ```bash
 wget https://objectstorage.uk-london-1.oraclecloud.com/n/lrbvkel2wjot/b/human-genome-bucket/o/human-t2t-hla.fa.gz

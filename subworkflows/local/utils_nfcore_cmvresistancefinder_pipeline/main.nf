@@ -171,13 +171,22 @@ workflow PIPELINE_COMPLETION {
 //
 def validateInputParameters() {
     if (params.input_type == 'fasta') {
-        def read_only = ['hostile_reference_path', 'kraken2_db', 'adapter_file', 'min_depth', 'min_freq', 'min_mapq']
+        def read_only = ['hostile_reference_path', 'nohuman_db', 'kraken2_db', 'adapter_file', 'min_depth', 'min_freq', 'min_mapq']
             .findAll { params[it] != null }
         log.info(
             "input_type = 'fasta': read-processing parameters " +
             "(trimmer, aligner, variant_caller, min_depth, min_freq, min_mapq, host removal, Kraken2) are ignored." +
             (read_only ? " Provided but unused: ${read_only.join(', ')}." : "")
         )
+    }
+
+    if (params.input_type != 'fasta' && !params.skip_host_removal) {
+        if (params.host_removal_tool == 'nohuman' && !params.nohuman_db) {
+            error("Host removal with nohuman (the default) needs --nohuman_db <path/to/nohuman/database> (download it once with `nohuman --download`). Use --host_removal_tool hostile, or --skip_host_removal, to run without it.")
+        }
+        if (params.host_removal_tool == 'hostile' && !params.hostile_reference_path) {
+            error("Host removal with Hostile needs --hostile_reference_path <path/to/hostile_reference>. Or use --skip_host_removal.")
+        }
     }
 
     if (params.input_type == 'long-read' && params.aligner != 'minimap2') {

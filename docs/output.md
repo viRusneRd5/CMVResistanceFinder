@@ -12,6 +12,7 @@ The pipeline is built using [Nextflow](https://www.nextflow.io/) and processes d
 
 - [FastQC](#fastqc) - Raw read QC (read input only)
 - [Cutadapt](#cutadapt) - optional amplicon primer trimming (`--primer_sequences`, short-read input only)
+- [nohuman](#nohuman) - host (human) read removal (default; read input only)
 - [Per-caller variant files](#per-caller-variant-files) - raw and SnpEff/SnpSift-annotated VCFs from each variant caller
 - [Variant and resistance files](#variant-and-resistance-files) - per-sample merged variant, resistance and (fasta input) assessed-region tables
 - [Reports](#reports) - per-sample and per-run HTML/PDF resistance reports
@@ -147,6 +148,20 @@ Read QC, trimming, host removal, alignment and per-caller variant calling only r
 </details>
 
 Only produced when `--primer_sequences` is given (short-read input). A sanity check: for a tagmentation-based library of amplicons, expect only a small share of reads (a few %) to be trimmed. If most reads lose a primer, your library starts every read at a primer (e.g. ligation of whole amplicons), which is also fine. If many reads are dropped as too short, check the primer FASTA. See [docs/usage.md](usage.md#--primer_sequences).
+
+### nohuman
+
+<details markdown="1">
+<summary>Output files</summary>
+
+- `nohuman/`
+  - `*_1.nohuman.fq.gz`, `*_2.nohuman.fq.gz` (or `*.nohuman.fq.gz` for single-end): reads with human reads removed, which go on to Kraken2, FastQC and alignment.
+  - `*.nohuman.kraken2.report.txt`: Kraken2 report of the classification against the human pangenome database.
+  - `*.nohuman.log`: nohuman's log, including the number and percentage of reads classified as human and removed.
+
+</details>
+
+Produced with the default `--host_removal_tool nohuman` unless `--skip_host_removal` is set. With `--host_removal_tool hostile`, Hostile's cleaned reads and JSON summary are published to `hostile/` instead.
 
 ### MultiQC
 

@@ -138,8 +138,26 @@
                 },
                 "skip_host_removal": {
                     "type": "boolean",
-                    "description": "Skip host-read removal with Hostile.",
+                    "description": "Skip host-read removal (nohuman or Hostile).",
                     "fa_icon": "fas fa-forward"
+                },
+                "host_removal_tool": {
+                    "type": "string",
+                    "default": "nohuman",
+                    "enum": [
+                        "nohuman",
+                        "hostile"
+                    ],
+                    "description": "Host-read removal tool.",
+                    "help_text": "`nohuman` (default) classifies reads with Kraken2 against a human pangenome database and needs `--nohuman_db`. `hostile` aligns reads to a human reference and needs `--hostile_reference_path`.",
+                    "fa_icon": "fas fa-user-slash"
+                },
+                "nohuman_db": {
+                    "type": "string",
+                    "format": "directory-path",
+                    "exists": true,
+                    "description": "Directory of the nohuman database (e.g. `HPRC.r2`, downloaded once with `nohuman --download`). Required for the default `--host_removal_tool nohuman`.",
+                    "fa_icon": "fas fa-folder-open"
                 },
                 "hostile_index": {
                     "type": "string",
@@ -151,7 +169,7 @@
                     "type": "string",
                     "format": "directory-path",
                     "exists": true,
-                    "description": "Directory containing the Hostile reference / bowtie2 index. Required unless `--skip_host_removal` is set.",
+                    "description": "Directory containing the Hostile reference / bowtie2 index. Required when `--host_removal_tool hostile` is used.",
                     "fa_icon": "fas fa-folder-open"
                 },
                 "kraken2_db": {
