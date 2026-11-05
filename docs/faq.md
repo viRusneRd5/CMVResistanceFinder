@@ -76,7 +76,7 @@ nextflow run viRusneRd5/cmvresistancefinder \
    --input samplesheet.csv \
    --outdir <OUTDIR> \
    --protocol amplicon \
-   --hostile_reference_path <path/to/hostile_reference> \
+   --nohuman_db <path/to/nohuman_db/HPRC.r2> \
    --kraken2_db <path/to/kraken2_virus_db \
    --report_author <your_name/institute> \
    --run_name <run_name> \

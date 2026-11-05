@@ -21,7 +21,7 @@ Read input:
 
 1. Read QC ([`FastQC`](https://www.bioinformatics.babraham.ac.uk/projects/fastqc/))
 2. Adapter/quality trimming ([`fastp`](https://github.com/OpenGene/fastp), [`Trimmomatic`](http://www.usadellab.org/cms/?page=trimmomatic) or, for long reads, [`fastplong`](https://github.com/OpenGene/fastplong)), plus optional amplicon primer trimming ([`Cutadapt`](https://cutadapt.readthedocs.io/), `--primer_sequences`)
-3. Optional host-read removal ([`Hostile`](https://github.com/bede/hostile)) and taxonomic classification ([`Kraken2`](https://ccb.jhu.edu/software/kraken2/))
+3. Optional host-read removal ([`nohuman`](https://github.com/mbhall88/nohuman) by default, or [`Hostile`](https://github.com/bede/hostile)) and taxonomic classification ([`Kraken2`](https://ccb.jhu.edu/software/kraken2/))
 4. Alignment to the CMV reference ([`minimap2`](https://github.com/lh3/minimap2), [`Bowtie2`](https://bowtie-bio.sourceforge.net/bowtie2/) or [`BWA-MEM3`](https://github.com/bwa-mem2/bwa-mem2))
 5. Variant calling with one or more of [`iVar`](https://andersen-lab.github.io/ivar/html/), [`FreeBayes`](https://github.com/freebayes/freebayes) and [`LoFreq`](https://csb5.github.io/lofreq/)
 
@@ -74,7 +74,7 @@ Each row is a single fastq file (single-end) or a pair of fastq files (paired-en
 
 To start from a per-gene consensus instead (e.g. Sanger sequencing), add `--input_type fasta` and use a two-column samplesheet (`sample,fasta`) where each `fasta` is one multi-record FASTA per sample, one record per resistance gene with the gene name at the start of the header. See [docs/usage.md](docs/usage.md#samplesheet-input-fasta--sanger-consensus).
 
-Host-read removal ([`Hostile`](https://github.com/bede/hostile)) and taxonomic classification ([`Kraken2`](https://ccb.jhu.edu/software/kraken2/)) each need a database downloaded once — see the [`--hostile_reference_path`](docs/usage.md#--hostile_reference_path) and [`--kraken2_db`](docs/usage.md#--kraken2_db) sections of `docs/usage.md` for the download commands. To skip either step, pass `--skip_host_removal` and/or `--skip_kraken2` instead of the corresponding path.
+Host-read removal ([`nohuman`](https://github.com/mbhall88/nohuman) by default, or [`Hostile`](https://github.com/bede/hostile) with `--host_removal_tool hostile`) and taxonomic classification ([`Kraken2`](https://ccb.jhu.edu/software/kraken2/)) each need a database downloaded once — see the [`--nohuman_db`](docs/usage.md#--nohuman_db) (or [`--hostile_reference_path`](docs/usage.md#--hostile_reference_path)) and [`--kraken2_db`](docs/usage.md#--kraken2_db) sections of `docs/usage.md` for the download commands. To skip either step, pass `--skip_host_removal` and/or `--skip_kraken2` instead of the corresponding path.
 
 Then run the pipeline using:
 
@@ -84,7 +84,7 @@ nextflow run viRusneRd5/cmvresistancefinder \
    --input samplesheet.csv \
    --outdir <OUTDIR> \
    --protocol amplicon \
-   --hostile_reference_path <path/to/hostile_reference> \
+   --nohuman_db <path/to/nohuman_db/HPRC.r2> \
    --kraken2_db <path/to/kraken2_virus_db> \
    --report_author <your_name/institute> \
    --run_name <run_name>

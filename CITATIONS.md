@@ -46,6 +46,10 @@
 
 > Shifu Chen. 2023. Ultrafast one-pass FASTQ data preprocessing, quality control, and deduplication using fastp. iMeta 2: e107.
 
+- [nohuman](https://doi.org/10.1093/gigascience/giae010)
+
+> Hall MB, Coin LJM. Pangenome databases improve host removal and mycobacteria classification from clinical metagenomic data. GigaScience. 2024, 13:giae010.
+
 - [hostile](https://doi.org/10.1093/bioinformatics/btad728)
 
 > Bede Constantinides, Martin Hunt, Derrick W Crook. "Hostile: accurate decontamination of microbial host sequences" Bioinformatics, 2023; btad728

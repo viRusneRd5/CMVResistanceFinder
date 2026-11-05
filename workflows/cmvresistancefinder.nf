@@ -12,6 +12,7 @@ include { INPUT_CHECK                                } from '../subworkflows/loc
 include { FASTA_INPUT                                } from '../subworkflows/local/fasta_input/main'
 include { PIPELINE_PREPARATION                       } from '../subworkflows/local/pipeline_preparation/main'
 include { HOSTILE_CLEAN                              } from '../modules/nf-core/hostile/clean/main'
+include { NOHUMAN                                    } from '../modules/local/nohuman/main'
 include { KRAKEN2_KRAKEN2                            } from '../modules/nf-core/kraken2/kraken2/main'
 include { FASTQC as RAW_FASTQC                       } from '../modules/nf-core/fastqc/main'
 include { FASTQC as FINAL_FASTQC                     } from '../modules/nf-core/fastqc/main'
@@ -207,13 +208,19 @@ workflow CMVRESISTANCEFINDER {
     }
 
     //
-    // MODULE: Host-read removal (Hostile) and/or read classification (Kraken2).
+    // MODULE: Host-read removal (nohuman by default, or Hostile) and/or read classification (Kraken2).
     // `ch_final_reads` is what goes on to FastQC and alignment: host-removed reads
     // if host removal ran, otherwise the trimmed reads.
     //
     ch_final_reads = ch_trimmed_fastq
 
-    if (!params.skip_host_removal) {
+    if (!params.skip_host_removal && params.host_removal_tool == 'nohuman') {
+        NOHUMAN (
+            ch_trimmed_fastq,
+            file(params.nohuman_db, checkIfExists: true)
+        )
+        ch_final_reads = NOHUMAN.out.fastq
+    } else if (!params.skip_host_removal && params.host_removal_tool == 'hostile') {
         ch_hostile_reference = Channel.value( [params.hostile_index, params.hostile_reference_path] )
         HOSTILE_CLEAN (
             ch_trimmed_fastq,
