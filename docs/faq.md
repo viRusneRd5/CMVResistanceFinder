@@ -92,7 +92,7 @@ Yes. Run with `--input_type fasta` and give a two-column samplesheet (`sample,fa
 
 **What if I want to provide my own database?**
 
-If you want to use your own database, then as long as you follow the same format as the existing database then you shouldn't have any problems. The database used in this pipeline was compiled from a huge systematic review [hopefully can cite soon!]. If you are aware of some mutations that are missing from the database, please get in touch and I can add it into the next update.
+Use `--cmv_resis_db <path/to/database.csv>` (and `--cmv_resis_db_version` to label it on the reports). It must have the same columns as the bundled `assets/final_pheno_meta_analysis_20260827.csv`. Any references it cites must be BibTeX entries with matching keys in the bibliography used by the reports; supply your own with `--bibliography <path/to/references.bib>`. The bundled database comes from a large-scale systematic review and meta-analysis of published CMV phenotyping studies; see [Phenotype database](usage.md#phenotype-database) for how it was built. A preprint describing it is in preparation. If you know of mutations missing from the database, please get in touch and they can be added in the next update.
 
 **How long does the pipeline take to run?**
 

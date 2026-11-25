@@ -49,7 +49,7 @@ template:
   description: Identifies cytomegalovirus (CMV) antiviral resistant mutations from
     short- and long-read sequencing data.
   author: Jocelyn Hume
-  version: 1.0.0dev
+  version: 1.0.0
   force: true
   outdir: .
   skip_features:

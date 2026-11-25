@@ -35,6 +35,4 @@ process QUARTO_RUN_REPORT {
         -P min_base_quality:${min_base_quality} \
         --output ${prefix}.html
     """
-
-    //TODO figure out stub here, add parameters to yml file,
 }

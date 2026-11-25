@@ -100,7 +100,7 @@
                     "snpsift": "5.4c"
                 },
                 "Workflow": {
-                    "viRusneRd5/cmvresistancefinder": "v1.0.0dev"
+                    "viRusneRd5/cmvresistancefinder": "v1.0.0"
                 }
             },
             "NC_006273.2.fasta.fai:md5,b6a2ed777651bc2f67962a437091e90c",

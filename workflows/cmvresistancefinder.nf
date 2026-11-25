@@ -365,9 +365,6 @@ workflow CMVRESISTANCEFINDER {
     }
 
 
-    // TODO: get stats on samples that passed minimum mapped reads
-
-
     //
     // Work out which variant caller(s) to run.
     // --variant_caller accepts "all", or a comma-separated subset of ivar, freebayes, lofreq
@@ -578,7 +575,8 @@ workflow CMVRESISTANCEFINDER {
         //
         // MODULE: Get coverage data for bam file to output in report
         //
-        //TODO: Figure out wgs vs amplicon report output.
+        // Run-report coverage is always summarised over the six resistance genes (ch_genes_bed), for
+        // either --protocol; the sample report draws its own whole-genome plot from the BAM for wgs.
         ch_bam_bai = ch_sorted_bam.join(ch_sort_bam_index)
         SAMTOOLS_COVERAGE (
             ch_bam_bai,
