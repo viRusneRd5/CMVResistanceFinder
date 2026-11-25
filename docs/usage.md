@@ -423,6 +423,8 @@ How published output files are written into `--outdir`. Default is `copy`, which
 
 Detected mutations are interpreted against a phenotype database bundled with the pipeline (`assets/final_pheno_meta_analysis_20260827.csv`, version `27-08-2026`). The database is the output of a large-scale systematic review and meta-analysis of published CMV antiviral susceptibility (phenotyping) studies. It holds one row per mutation and drug: 904 mutation/drug combinations, covering 404 mutations in UL27, UL51, UL54, UL56, UL89, UL97 and UL104, for ganciclovir, foscarnet, cidofovir, maribavir and letermovir, drawn from 138 studies.
 
+The database is also published on its own, as the **CMV Antiviral Resistance Database**: browse it or look up a mutation on the [website](https://virusnerd5.github.io/cmv-resistance-db/), get the data from [GitHub](https://github.com/viRusneRd5/cmv-resistance-db), or cite the archived version on [Zenodo](https://doi.org/10.5281/zenodo.24523905).
+
 <!-- TODO: add the preprint citation and DOI here once published. -->
 The full methods and citation will be added here once the preprint describing the systematic review and meta-analysis is published.
 
