@@ -106,9 +106,19 @@ Dr Kym Lowry - the University of Queensland
 
 If you would like to contribute to this pipeline, please see the [contributing guidelines](docs/CONTRIBUTING.md).
 
+## Phenotype database
+
+Detected mutations are interpreted against the **CMV Antiviral Resistance Database**, built from a large-scale systematic review and meta-analysis of published CMV antiviral susceptibility studies. A copy is bundled with the pipeline, so no download is needed. To browse the database, look up a mutation or download the full data, see:
+
+- Website: [https://virusnerd5.github.io/cmv-resistance-db/](https://virusnerd5.github.io/cmv-resistance-db/)
+- Data and source: [https://github.com/viRusneRd5/cmv-resistance-db](https://github.com/viRusneRd5/cmv-resistance-db)
+- Archived (Zenodo): [https://doi.org/10.5281/zenodo.24523905](https://doi.org/10.5281/zenodo.24523905)
+
+See [Phenotype database](docs/usage.md#phenotype-database) in `docs/usage.md` for how the bundled copy is used in the reports.
+
 ## Citations
 
-A preprint describing the systematic review and meta-analysis behind the phenotype database, and this pipeline, is in preparation; its citation will be added here once available. In the meantime, if you use viRusneRd5/cmvresistancefinder, please cite this repository and the version you used (e.g. `v1.0.0`).
+A preprint describing the systematic review and meta-analysis behind the phenotype database, and this pipeline, is in preparation; its citation will be added here once available. In the meantime, if you use viRusneRd5/cmvresistancefinder, please cite this repository and the version you used (e.g. `v1.0.0`), and the CMV Antiviral Resistance Database ([https://doi.org/10.5281/zenodo.24523905](https://doi.org/10.5281/zenodo.24523905)).
 
 An extensive list of references for the tools used by the pipeline can be found in the [`CITATIONS.md`](CITATIONS.md) file.
 
