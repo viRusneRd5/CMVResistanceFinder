@@ -383,8 +383,9 @@ Boolean to skip Kraken2 read classification (default is `false`). If you do skip
 
 ### `--variant_caller`
 
-Currently, this must be set to `'all'` so that the pipeline will perform variant calling using freebayes, ivar and lofreq. If you change this setting to only run a single variant caller, this will break the compilation of variants later in the pipeline. Working to fix this.
-<!-- TODO variant caller: Once this is fixed, I will need to change this. -->
+Which variant caller(s) to run: `'all'` (default; iVar, FreeBayes and LoFreq), or a comma-separated subset, e.g. `--variant_caller freebayes,lofreq` or `--variant_caller ivar`. Calls from whichever callers run are merged, and the `detected_by` column records which caller(s) found each variant.
+
+We recommend the default. The confidence tier (see [docs/output.md](output.md)) rewards agreement between callers: a call can only be **High** confidence if at least two callers detect it. With a single caller, every call is therefore at most **Medium**. Each caller also has different strengths; for example, FreeBayes is the most robust to indels. Running fewer callers can miss calls that one of the others would have made.
 
 ### `--aligner`
 
@@ -417,6 +418,40 @@ Boolean to skip the generation of the individual sample reports. Default is `fal
 ### `--publish_dir_mode`
 
 How published output files are written into `--outdir`. Default is `copy`, which works everywhere. If `--outdir` is on the **same filesystem** as Nextflow's work directory (the common case for an HPC scratch area), you can instead pass `--publish_dir_mode link` to hard-link each output rather than copying it - free, zero extra disk space, since it's the same data already sitting in the work directory.
+
+## Phenotype database
+
+Detected mutations are interpreted against a phenotype database bundled with the pipeline (`assets/final_pheno_meta_analysis_20260827.csv`, version `27-08-2026`). The database is the output of a large-scale systematic review and meta-analysis of published CMV antiviral susceptibility (phenotyping) studies. It holds one row per mutation and drug: 904 mutation/drug combinations, covering 404 mutations in UL27, UL51, UL54, UL56, UL89, UL97 and UL104, for ganciclovir, foscarnet, cidofovir, maribavir and letermovir, drawn from 138 studies.
+
+<!-- TODO: add the preprint citation and DOI here once published. -->
+The full methods and citation will be added here once the preprint describing the systematic review and meta-analysis is published.
+
+For each mutation/drug, the database gives an overall EC50 ratio: the fold-change in the 50% effective concentration (EC50) for the mutant relative to wild-type virus. It is derived in one of three ways, depending on how much data was published:
+
+- **Pooled meta-analysis estimate**, where enough data were available (147 combinations; `k` = 2-17 data points). The pooled estimate, its 95% confidence interval and heterogeneity statistics (`tau2`, `I2`) are included.
+- **Geometric mean** of several reported EC50 ratios, where a meta-analysis wasn't possible (134 combinations).
+- **Single reported EC50 ratio**, where only one value was published (623 combinations).
+
+The overall EC50 ratio is then categorised into the level of resistance shown in the reports:
+
+| Level of resistance | Overall EC50 ratio |
+| ------------------- | ------------------ |
+| Susceptible         | < 2                |
+| Low                 | 2 to < 5           |
+| Medium              | 5 to < 15          |
+| High                | >= 15              |
+
+The studies supporting each value are listed as BibTeX keys (`bibtex_list_meta`, `bibtex_list_geo`). They are resolved against `assets/cmv_resis_db_bibliography.bib` (override with `--bibliography`) and shown as references in the sample reports.
+
+A mutation that isn't in the database is still reported, as a "Mutation of Unknown Significance", if it is non-synonymous and falls in a resistance gene. Absence from the database means no published phenotype was found; it does not mean the mutation is susceptible.
+
+### `--cmv_resis_db`
+
+Path to the phenotype database CSV (default: the bundled database above). To use your own, it must have the same columns as the bundled file; see the FAQ, "What if I want to provide my own database?".
+
+### `--cmv_resis_db_version`
+
+Version or date of the phenotype database, shown at the top of every report (default `27-08-2026`). Change this if you supply your own database with `--cmv_resis_db`.
 
 ## Extra custom configuration (for advanced users)
 
